@@ -37,7 +37,7 @@ struct TapView: View {
                 Spacer()
                 Button("End stairway or path", systemImage: "globe") {
                     modelContext.insert(StairPath(
-                        name: name, type: .stairs, startLatitude: stairPathInProgress[0].start.latitude,
+                        name: name, type: type, startLatitude: stairPathInProgress[0].start.latitude,
                         startLongitude: stairPathInProgress[0].start.longitude, endLatitude: latitude, endLongitude: longitude))
                     modelContext.delete(stairPathInProgress[0])
                     do {

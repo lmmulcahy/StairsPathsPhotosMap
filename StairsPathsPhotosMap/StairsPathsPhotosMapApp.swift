@@ -11,7 +11,7 @@ import SwiftUI
 struct StairsPathsPhotosMapApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            StartTab()
         }
     }
 }

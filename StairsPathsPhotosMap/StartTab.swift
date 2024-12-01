@@ -11,9 +11,13 @@ struct StartTab: View {
     var body: some View {
         TabView {
             Group {
-                ContentView()
+                PhotoMapView()
                     .tabItem {
                         Label("StairsPathsMap", systemImage: "map")
+                    }
+                MapEditView()
+                    .tabItem {
+                        Label("Edit Map", systemImage: "map")
                     }
                 StairPathsListView()
                     .tabItem {
