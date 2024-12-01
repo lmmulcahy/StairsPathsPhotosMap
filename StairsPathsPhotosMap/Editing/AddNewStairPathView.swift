@@ -1,5 +1,5 @@
 //
-//  TapView.swift
+//  AddNewStairPathView.swift
 //  StairsPathsPhotosMap
 //
 //  Created by Luke Mulcahy on 11/30/24.
@@ -8,7 +8,7 @@
 import SwiftData
 import SwiftUI
 
-struct TapView: View {
+struct AddNewStairPathView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query() private var stairPathInProgress: [StairPathInProgress]
@@ -59,5 +59,5 @@ struct TapView: View {
 }
 
 #Preview {
-    TapView(latitude: 10, longitude: 389)
+    AddNewStairPathView(latitude: 10, longitude: 389)
 }

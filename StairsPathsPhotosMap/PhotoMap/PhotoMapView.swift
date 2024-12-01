@@ -46,7 +46,7 @@ struct PhotoMapView: View {
                 }.padding()
             }
             .sheet(item: $selectedPath) { selectedPath in
-                Text(selectedPath.name).presentationDetents([.height(250)])
+                StairPathPhotosView(stairPath: selectedPath).presentationDetents([.fraction(0.5)])
             }
         }
     }

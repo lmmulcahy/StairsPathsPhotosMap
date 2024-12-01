@@ -41,11 +41,7 @@ struct MapEditView: View {
             }
             .onTapGesture { position in
                 if let coordinate = proxy.convert(position, from: .local) {
-                    if selectedPath == nil {
-                        selectedTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-                    } else {
-                        selectedTap = nil
-                    }
+                    selectedTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -54,9 +50,7 @@ struct MapEditView: View {
                 }.padding()
             }
             .sheet(item: $selectedTap) { selectedTap in
-                if selectedPath == nil {
-                    TapView(latitude: selectedTap.latitude, longitude: selectedTap.longitude).presentationDetents([.height(250)]) }
-            }
+                    AddNewStairPathView(latitude: selectedTap.latitude, longitude: selectedTap.longitude).presentationDetents([.height(250)]) }
         }
     }
 }
