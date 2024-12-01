@@ -40,9 +40,6 @@ struct AddNewStairPathView: View {
                         name: name, type: type, startLatitude: stairPathInProgress[0].start.latitude,
                         startLongitude: stairPathInProgress[0].start.longitude, endLatitude: latitude, endLongitude: longitude))
                     modelContext.delete(stairPathInProgress[0])
-                    do {
-                        try modelContext.save()
-                    } catch { }
                     dismiss()
                 }.disabled(name.isEmpty)
             } else {

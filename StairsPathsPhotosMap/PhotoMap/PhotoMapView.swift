@@ -11,10 +11,7 @@ import SwiftUI
 
 struct PhotoMapView: View {
     @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
-    @Query() private var stairPathInProgress: [StairPathInProgress]
 
-    @State private var selectedTap: MapLocation?
-    @State var startedStairPath: MapLocation?
     @State var selectedPath: StairPath?
     var body: some View {
         MapReader { proxy in
@@ -26,18 +23,6 @@ struct PhotoMapView: View {
                         Marker(coordinate: stairPath.centerCoordinate) {
                             Label(stairPath.name, systemImage: "star")}
                     }.tag(stairPath)
-                }
-                ForEach(stairPathInProgress) { stairPathInProgress in
-                    Annotation("Start", coordinate: stairPathInProgress.start.coordinate, anchor: .bottom) {
-                        Image(systemName: "mappin").foregroundStyle(.blue)
-                    }
-                }
-                if let selectedTap {
-                    let selectedCoordinate = CLLocationCoordinate2D(
-                        latitude: selectedTap.latitude, longitude: selectedTap.longitude)
-                    Annotation("", coordinate: selectedCoordinate, anchor: .bottom) {
-                        Image(systemName: "mappin").foregroundStyle(.yellow)
-                    }
                 }
             }
             .safeAreaInset(edge: .bottom) {

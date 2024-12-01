@@ -14,7 +14,6 @@ struct MapEditView: View {
     @Query() private var stairPathInProgress: [StairPathInProgress]
 
     @State private var selectedTap: MapLocation?
-    @State var startedStairPath: MapLocation?
     @State var selectedPath: StairPath?
     var body: some View {
         MapReader { proxy in
