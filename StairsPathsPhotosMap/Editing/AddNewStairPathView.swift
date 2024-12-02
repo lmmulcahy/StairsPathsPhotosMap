@@ -5,6 +5,7 @@
 //  Created by Luke Mulcahy on 11/30/24.
 //
 
+import MapKit
 import SwiftData
 import SwiftUI
 
@@ -40,14 +41,14 @@ struct AddNewStairPathView: View {
                         name: name, type: type, startLatitude: stairPathInProgress[0].start.latitude,
                         startLongitude: stairPathInProgress[0].start.longitude, endLatitude: latitude, endLongitude: longitude))
                     modelContext.delete(stairPathInProgress[0])
-                    dismiss()
-                }.disabled(name.isEmpty)
-            } else {
-                Button(){
-                    modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
                     do {
                         try modelContext.save()
                     } catch { }
+                    dismiss()
+                }.disabled(name.isEmpty)
+            } else {
+                Button() {
+                    modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
                     dismiss()
                 } label: { Label("Start stairway or path", systemImage: "globe") }
             }

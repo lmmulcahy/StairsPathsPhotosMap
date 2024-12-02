@@ -7,6 +7,7 @@
 
 import MapKit
 import SwiftData
+import SwiftUI
 
 @Model
 class StairPath {
@@ -16,6 +17,7 @@ class StairPath {
     var startLongitude: Double
     var endLatitude: Double
     var endLongitude: Double
+    var photos: [Data]
     
     init (name: String, type: StairPathType, startLatitude: Double, startLongitude: Double, endLatitude: Double, endLongitude: Double) {
         self.name = name
@@ -24,6 +26,7 @@ class StairPath {
         self.startLongitude = startLongitude
         self.endLatitude = endLatitude
         self.endLongitude = endLongitude
+        self.photos = []
     }
     
     var startCoordinate: CLLocationCoordinate2D {
@@ -47,7 +50,7 @@ enum StairPathType: String, Codable, CaseIterable {
 extension StairPath {
     @MainActor static var preview: ModelContainer {
         let container = try! ModelContainer(
-            for: StairPath.self, StairPathInProgress.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+            for: StairPath.self, StairPathInProgress.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true), ModelConfiguration(isStoredInMemoryOnly: true))
         
         let pachecoStairs: StairPath = .init(name: "Pacheco Stairs", type: .stairs, startLatitude: 37.746190, startLongitude: -122.462162, endLatitude: 37.746720, endLongitude: -122.462828)
         container.mainContext.insert(pachecoStairs)

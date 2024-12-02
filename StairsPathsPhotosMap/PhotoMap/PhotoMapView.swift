@@ -11,8 +11,9 @@ import SwiftUI
 
 struct PhotoMapView: View {
     @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
-
     @State var selectedPath: StairPath?
+    private let locationManager = CLLocationManager()
+    
     var body: some View {
         MapReader { proxy in
             Map(selection: $selectedPath) {

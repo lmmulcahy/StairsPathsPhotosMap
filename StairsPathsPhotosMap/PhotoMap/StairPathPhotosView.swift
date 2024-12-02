@@ -12,7 +12,7 @@ struct StairPathPhotosView: View {
     var stairPath: StairPath
     
     @State private var selectedItems: [PhotosPickerItem] = []
-    @State private var selectedImages: [Image] = []
+    @State private var selectedImagesData: [Data] = []
 
     var body: some View {
         VStack {
@@ -20,20 +20,23 @@ struct StairPathPhotosView: View {
             PhotosPicker(selection: $selectedItems, maxSelectionCount: 10, selectionBehavior: .continuousAndOrdered, matching: .images) {
                 Label("Add photos", systemImage: "photo")
             }
-            if selectedImages.isEmpty {
+            if stairPath.photos.isEmpty {
                 ContentUnavailableView("No Photos", systemImage: "photo.on.rectangle", description: Text("To get started, select some photos above"))
                     .frame(height: 300)
             } else {
                 ScrollView(.horizontal) {
                     LazyHStack {
-                        ForEach(0..<selectedImages.count, id: \.self) { index in
-                            selectedImages[index]
-                                .resizable()
-                                .scaledToFill()
-                                .frame(height: 250)
-                                .clipShape(RoundedRectangle(cornerRadius: 25.0))
-                                .padding(.horizontal, 20)
-                                .containerRelativeFrame(.horizontal)
+                        ForEach(0..<stairPath.photos.count, id: \.self) { index in
+                            let uiImage = UIImage(data: stairPath.photos[index])
+                            if let uiImage {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(height: 250)
+                                    .clipShape(RoundedRectangle(cornerRadius: 25.0))
+                                    .padding(.horizontal, 20)
+                                    .containerRelativeFrame(.horizontal)
+                            }
                         }
                         
                     }
@@ -42,11 +45,10 @@ struct StairPathPhotosView: View {
             }
         }
         .onChange(of: selectedItems) { oldItems, newItems in
-            selectedImages.removeAll()
             newItems.forEach { newItem in
                 Task {
-                    if let image = try? await newItem.loadTransferable(type: Image.self) {
-                        selectedImages.append(image)
+                    if let image = try? await newItem.loadTransferable(type: Data.self) {
+                        stairPath.photos.append(image)
                     }
                 }
             }

@@ -14,6 +14,7 @@ struct MapEditView: View {
     @Query() private var stairPathInProgress: [StairPathInProgress]
 
     @State private var selectedTap: MapLocation?
+    @State var startedStairPath: MapLocation?
     @State var selectedPath: StairPath?
     var body: some View {
         MapReader { proxy in
@@ -40,7 +41,11 @@ struct MapEditView: View {
             }
             .onTapGesture { position in
                 if let coordinate = proxy.convert(position, from: .local) {
-                    selectedTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                    if selectedPath == nil {
+                        selectedTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                    } else {
+                        selectedTap = nil
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -49,7 +54,9 @@ struct MapEditView: View {
                 }.padding()
             }
             .sheet(item: $selectedTap) { selectedTap in
+                if selectedPath == nil {
                     AddNewStairPathView(latitude: selectedTap.latitude, longitude: selectedTap.longitude).presentationDetents([.height(250)]) }
+            }
         }
     }
 }
