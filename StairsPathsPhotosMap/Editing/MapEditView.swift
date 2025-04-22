@@ -56,7 +56,7 @@ struct MapEditView: View {
             .sheet(item: $selectedTap) { selectedTap in
                 if selectedPath == nil {
                     AddNewStairPathView(latitude: selectedTap.latitude, longitude: selectedTap.longitude)
-                        .presentationDetents([.small])
+                        .presentationDetents([.height(250)])
                 }
             }
         }
