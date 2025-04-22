@@ -15,6 +15,10 @@ struct StartTab: View {
                     .tabItem {
                         Label("StairsPathsMap", systemImage: "map")
                     }
+                GooglePhotoMapViewContainer()
+                    .tabItem {
+                        Label("GoogleStairsPathsMap", systemImage: "map")
+                    }
                 MapEditView()
                     .tabItem {
                         Label("Edit Map", systemImage: "map")
