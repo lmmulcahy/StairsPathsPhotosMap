@@ -5,7 +5,6 @@
 //  Created by Luke Mulcahy on 11/30/24.
 //
 
-import MapKit
 import SwiftData
 import SwiftUI
 
@@ -16,46 +15,93 @@ struct AddNewStairPathView: View {
 
     var latitude: Double
     var longitude: Double
-    
+
     @State private var name = ""
     @State private var type: StairPathType = .stairs
 
     var body: some View {
-        VStack {
-            Text("Lat: " + String(latitude))
-            Text("Long: " + String(longitude))
-            Spacer()
-            if (stairPathInProgress.count > 0) {
-                HStack {
-                    Text("Name: ")
-                    TextField("...", text: $name).padding()
-                }
-                Picker("Type: ", selection: $type) {
-                    ForEach(StairPathType.allCases, id: \.self) { type in
-                        Text(type.rawValue).tag(type)
+        GeometryReader { geometry in
+            VStack() {
+                // Title
+                Text(stairPathInProgress.isEmpty ? "Start a New Path" : "Complete the Path")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
+                    .padding(.top)
+
+                if !stairPathInProgress.isEmpty {
+                    // Name Input
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Name")
+                            .font(.headline)
+                        TextField("Enter name...", text: $name)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .padding(.horizontal)
                     }
+
+                    // Type Picker
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Type")
+                            .font(.headline)
+                        Picker("Type", selection: $type) {
+                            ForEach(StairPathType.allCases, id: \.self) { type in
+                                Text(type.rawValue.capitalized).tag(type)
+                            }
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .padding()
+                    }
+
+                    Button(action: {
+                        modelContext.insert(StairPath(
+                            name: name,
+                            type: type,
+                            startLatitude: stairPathInProgress[0].start.latitude,
+                            startLongitude: stairPathInProgress[0].start.longitude,
+                            endLatitude: latitude,
+                            endLongitude: longitude
+                        ))
+                        modelContext.delete(stairPathInProgress[0])
+                        do {
+                            try modelContext.save()
+                        } catch {
+                            print("Failed to save: \(error)")
+                        }
+                        dismiss()
+                    }) {
+                        Label("End Stairway or Path", systemImage: "checkmark")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(name.isEmpty ? Color.gray : Color.green)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .disabled(name.isEmpty)
+                    .padding()
+                } else {
+                    // Action Button
+                    Button(action: {
+                        modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
+                        dismiss()
+                    }) {
+                        Label("Start Stairway or Path", systemImage: "plus")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .padding()
                 }
-                Spacer()
-                Button("End stairway or path", systemImage: "globe") {
-                    modelContext.insert(StairPath(
-                        name: name, type: type, startLatitude: stairPathInProgress[0].start.latitude,
-                        startLongitude: stairPathInProgress[0].start.longitude, endLatitude: latitude, endLongitude: longitude))
-                    modelContext.delete(stairPathInProgress[0])
-                    do {
-                        try modelContext.save()
-                    } catch { }
-                    dismiss()
-                }.disabled(name.isEmpty)
-            } else {
-                Button() {
-                    modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
-                    dismiss()
-                } label: { Label("Start stairway or path", systemImage: "globe") }
             }
+            .frame(height: geometry.size.height) // Ensure it fits within the available height
+            .padding()
         }
     }
 }
 
 #Preview {
-    AddNewStairPathView(latitude: 10, longitude: 389)
+    AddNewStairPathView(latitude: 37.7749, longitude: -122.4194)
 }
