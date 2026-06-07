@@ -7,46 +7,33 @@
 
 import SwiftUI
 
+enum MapType: String {
+    case apple = "Apple"
+    case google = "Google"
+}
+
 struct StartTab: View {
-    @AppStorage("preferredMapType") private var preferredMapType: String = "Apple"
+    @AppStorage("preferredMapType") private var preferredMapType: MapType = .apple
 
     var body: some View {
         TabView {
             Group {
-                // Main map view
-                if preferredMapType == "Apple" {
-                    PhotoMapView()
-                        .tabItem {
-                            Label("StairsPathsMap", systemImage: "map")
-                        }
-                } else {
-                    GooglePhotoMapViewContainer()
-                        .tabItem {
-                            Label("StairsPathsMap", systemImage: "map")
-                        }
-                }
+                photoMap
+                    .tabItem {
+                        Label("StairsPathsMap", systemImage: "map")
+                    }
 
-                // Editing map view
-                if preferredMapType == "Apple" {
-                    MapEditView()
-                        .tabItem {
-                            Label("Edit Map", systemImage: "map")
-                        }
-                } else {
-                    GoogleMapEditViewContainer()
-                        .tabItem {
-                            Label("Edit Map", systemImage: "map")
-                        }
-                }
+                editMap
+                    .tabItem {
+                        Label("Edit Map", systemImage: "map")
+                    }
 
-                // List view
                 StairPathsListView()
                     .tabItem {
                         Label("List", systemImage: "globe")
                     }
 
-                // Settings view
-                NavigationView {
+                NavigationStack {
                     SettingsView()
                 }
                 .tabItem {
@@ -55,6 +42,20 @@ struct StartTab: View {
             }
             .toolbarBackground(.visible, for: .tabBar)
             .toolbarColorScheme(.dark, for: .tabBar)
+        }
+    }
+
+    @ViewBuilder private var photoMap: some View {
+        switch preferredMapType {
+        case .apple: PhotoMapView()
+        case .google: GooglePhotoMapViewContainer()
+        }
+    }
+
+    @ViewBuilder private var editMap: some View {
+        switch preferredMapType {
+        case .apple: MapEditView()
+        case .google: GoogleMapEditViewContainer()
         }
     }
 }
