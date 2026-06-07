@@ -58,10 +58,6 @@ extension StairPath {
         container.mainContext.insert(filbertSteps)
         let moreSteps: StairPath = .init(name: "More St Steps", type: .stairs, startLatitude: 37.785889, startLongitude: -122.425264, endLatitude: 37.79134, endLongitude: -122.403372)
         container.mainContext.insert(moreSteps)
-        /*
-        let inProgress: StairPathInProgress = .init(name: "blahhh!!!!", start: MapLocation(latitude: 37.785, longitude: -122.427), end: MapLocation(latitude: 37.800, longitude: -122.427))
-        container.mainContext.insert(inProgress)
-         */
         return container
     }
 }

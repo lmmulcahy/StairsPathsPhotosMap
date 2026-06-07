@@ -10,7 +10,6 @@ import SwiftData
 
 struct StairPathsListView: View {
     @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
-    @Query() private var stairPathInProgress: [StairPathInProgress]
 
     var body: some View {
         VStack {

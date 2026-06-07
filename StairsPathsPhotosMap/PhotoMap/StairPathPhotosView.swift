@@ -12,7 +12,6 @@ struct StairPathPhotosView: View {
     var stairPath: StairPath
     
     @State private var selectedItems: [PhotosPickerItem] = []
-    @State private var selectedImagesData: [Data] = []
 
     var body: some View {
         VStack {
@@ -76,9 +75,3 @@ struct StairPathPhotosView: View {
         return resized.jpegData(compressionQuality: quality)
     }
 }
-
-/*
- #Preview {
- StairPathPhotosView().modelContainer(StairPath.preview)
- }
- */

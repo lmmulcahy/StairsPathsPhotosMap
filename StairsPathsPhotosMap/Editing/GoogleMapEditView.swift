@@ -11,7 +11,6 @@ import GoogleMaps
 
 struct GoogleMapEditView: UIViewRepresentable {
     @Binding var selectedTap: MapLocation?
-    @Binding var startedStairPath: MapLocation?
     @Binding var selectedPath: StairPath?
     var stairPaths: [StairPath]
     var stairPathInProgress: [StairPathInProgress]
@@ -97,13 +96,11 @@ struct GoogleMapEditViewContainer: View {
     @Query() private var stairPathInProgress: [StairPathInProgress]
 
     @State private var selectedTap: MapLocation?
-    @State private var startedStairPath: MapLocation?
     @State private var selectedPath: StairPath?
 
     var body: some View {
         GoogleMapEditView(
             selectedTap: $selectedTap,
-            startedStairPath: $startedStairPath,
             selectedPath: $selectedPath,
             stairPaths: stairPaths,
             stairPathInProgress: stairPathInProgress

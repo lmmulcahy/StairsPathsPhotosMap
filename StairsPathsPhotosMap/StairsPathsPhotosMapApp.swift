@@ -36,7 +36,7 @@ struct StairsPathsPhotosMapApp: App {
 
     init() {
         do {
-            container = try ModelContainer(for: StairPathInProgress.self, StairPath.self/*, configurations: ModelConfiguration(isStoredInMemoryOnly: true), ModelConfiguration(isStoredInMemoryOnly: true)*/)
+            container = try ModelContainer(for: StairPathInProgress.self, StairPath.self)
         } catch {
             fatalError("Couldn't set up SwiftData container")
         }
