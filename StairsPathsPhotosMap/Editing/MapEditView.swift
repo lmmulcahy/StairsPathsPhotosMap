@@ -58,6 +58,10 @@ struct MapEditView: View {
                         .presentationDetents([.height(250)])
                 }
             }
+            .sheet(item: $selectedPath) { selectedPath in
+                StairPathPhotosView(stairPath: selectedPath)
+                    .presentationDetents([.fraction(0.5)])
+            }
         }
     }
 }
