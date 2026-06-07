@@ -44,7 +44,7 @@ struct StairPathPhotosView: View {
             }
         }
         .onChange(of: selectedItems) { oldItems, newItems in
-            let addedItems = newItems.filter { !oldItems.contains($0) }
+            let addedItems = Self.newlyAdded(newItems, notIn: oldItems)
             Task {
                 for item in addedItems {
                     if let data = try? await item.loadTransferable(type: Data.self),
@@ -56,9 +56,15 @@ struct StairPathPhotosView: View {
         }
     }
 
+    /// Returns only the items present in `newItems` that weren't already in
+    /// `oldItems`, so a continuous picker selection isn't re-appended each change.
+    static func newlyAdded<T: Equatable>(_ newItems: [T], notIn oldItems: [T]) -> [T] {
+        newItems.filter { !oldItems.contains($0) }
+    }
+
     /// Downscales and re-encodes picked photos so we don't persist full-resolution
     /// originals, which would bloat the store and memory.
-    private static func downsized(_ data: Data, maxDimension: CGFloat = 1600, quality: CGFloat = 0.8) -> Data? {
+    static func downsized(_ data: Data, maxDimension: CGFloat = 1600, quality: CGFloat = 0.8) -> Data? {
         guard let image = UIImage(data: data) else { return nil }
         let longestSide = max(image.size.width, image.size.height)
         guard longestSide > maxDimension else {

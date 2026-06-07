@@ -53,17 +53,15 @@ struct AddNewStairPathView: View {
                     }
 
                     Button(action: {
-                        modelContext.insert(StairPath(
-                            name: name,
-                            type: type,
-                            startLatitude: stairPathInProgress[0].start.latitude,
-                            startLongitude: stairPathInProgress[0].start.longitude,
-                            endLatitude: latitude,
-                            endLongitude: longitude
-                        ))
-                        modelContext.delete(stairPathInProgress[0])
                         do {
-                            try modelContext.save()
+                            try StairPathEditing.completePath(
+                                name: name,
+                                type: type,
+                                endLatitude: latitude,
+                                endLongitude: longitude,
+                                from: stairPathInProgress[0],
+                                in: modelContext
+                            )
                         } catch {
                             print("Failed to save: \(error)")
                         }
@@ -82,7 +80,7 @@ struct AddNewStairPathView: View {
                 } else {
                     // Action Button
                     Button(action: {
-                        modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
+                        StairPathEditing.startPath(at: MapLocation(latitude: latitude, longitude: longitude), in: modelContext)
                         dismiss()
                     }) {
                         Label("Start Stairway or Path", systemImage: "plus")
