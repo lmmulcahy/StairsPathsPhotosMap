@@ -25,11 +25,6 @@ struct PhotoMapView: View {
                     }.tag(stairPath)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                HStack {
-                    Text("Search...")
-                }.padding()
-            }
             .sheet(item: $selectedPath) { selectedPath in
                 StairPathPhotosView(stairPath: selectedPath).presentationDetents([.fraction(0.5)])
             }

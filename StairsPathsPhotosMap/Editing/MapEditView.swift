@@ -47,11 +47,6 @@ struct MapEditView: View {
                     }
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                HStack {
-                    Text("Search...")
-                }.padding()
-            }
             .sheet(item: $selectedTap) { selectedTap in
                 if selectedPath == nil {
                     AddNewStairPathView(latitude: selectedTap.latitude, longitude: selectedTap.longitude)
