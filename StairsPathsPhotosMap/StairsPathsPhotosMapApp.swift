@@ -13,13 +13,14 @@ class StairsPathsPhotosMapAppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
 
-        // 2. Set your Google Maps API key here
-        // Retrieve the API key from the Info.plist
-        if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_API_KEY") as? String {
+        // The Google Maps key is optional: it is only needed when the user picks
+        // the Google Maps backend. If it is missing we skip SDK setup rather than
+        // crash, so the Apple Maps experience still works.
+        if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_API_KEY") as? String,
+           !apiKey.isEmpty {
             GMSServices.provideAPIKey(apiKey)
-            print("Google Maps SDK initialized with API key") // Optional: Add a print to confirm
         } else {
-            fatalError("Google Maps API key is missing. Please check your configuration.")
+            print("Google Maps API key is missing; Google Maps backend will be unavailable.")
         }
 
         return true
