@@ -45,9 +45,10 @@ struct StairPathPhotosView: View {
             }
         }
         .onChange(of: selectedItems) { oldItems, newItems in
-            newItems.forEach { newItem in
-                Task {
-                    if let image = try? await newItem.loadTransferable(type: Data.self) {
+            let addedItems = newItems.filter { !oldItems.contains($0) }
+            Task {
+                for item in addedItems {
+                    if let image = try? await item.loadTransferable(type: Data.self) {
                         stairPath.photos.append(image)
                     }
                 }
