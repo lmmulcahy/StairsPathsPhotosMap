@@ -17,7 +17,7 @@ class StairPath {
     var startLongitude: Double
     var endLatitude: Double
     var endLongitude: Double
-    var photos: [Data]
+    @Attribute(.externalStorage) var photos: [Data]
     
     init (name: String, type: StairPathType, startLatitude: Double, startLongitude: Double, endLatitude: Double, endLongitude: Double) {
         self.name = name
