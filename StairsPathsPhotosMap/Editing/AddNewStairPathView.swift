@@ -35,7 +35,7 @@ struct AddNewStairPathView: View {
                         Text("Name")
                             .font(.headline)
                         TextField("Enter name...", text: $name)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .textFieldStyle(.roundedBorder)
                             .padding(.horizontal)
                     }
 
@@ -48,7 +48,7 @@ struct AddNewStairPathView: View {
                                 Text(type.rawValue.capitalized).tag(type)
                             }
                         }
-                        .pickerStyle(SegmentedPickerStyle())
+                        .pickerStyle(.segmented)
                         .padding()
                     }
 
