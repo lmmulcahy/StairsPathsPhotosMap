@@ -45,7 +45,13 @@ struct StairsPathsPhotosMapApp: App {
     
     var body: some Scene {
         WindowGroup {
-            StartTab()
+            // Skip the map UI while unit tests run: the host app rendering MapKit
+            // alongside the test work destabilizes the simulator process.
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+                StartTab()
+            } else {
+                EmptyView()
+            }
         }.modelContainer(container)
     }
 }
