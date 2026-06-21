@@ -17,7 +17,9 @@ struct GoogleMapEditView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> GMSMapView {
         let camera = GMSCameraPosition.camera(withLatitude: 37.7749, longitude: -122.4194, zoom: 12) // Default to San Francisco
-        let mapView = GMSMapView(frame: .zero, camera: camera)
+        let options = GMSMapViewOptions()
+        options.camera = camera
+        let mapView = GMSMapView(options: options)
         mapView.delegate = context.coordinator
         return mapView
     }
@@ -27,10 +29,11 @@ struct GoogleMapEditView: UIViewRepresentable {
 
         // Add existing stair paths
         for stairPath in stairPaths {
+            let stairPathFull = StairPathFull(stairPath: stairPath)
             // Add polyline
             let path = GMSMutablePath()
-            path.add(CLLocationCoordinate2D(latitude: stairPath.startCoordinate.latitude, longitude: stairPath.startCoordinate.longitude))
-            path.add(CLLocationCoordinate2D(latitude: stairPath.endCoordinate.latitude, longitude: stairPath.endCoordinate.longitude))
+            path.add(CLLocationCoordinate2D(latitude: stairPathFull.startCoordinate.latitude, longitude: stairPathFull.startCoordinate.longitude))
+            path.add(CLLocationCoordinate2D(latitude: stairPathFull.endCoordinate.latitude, longitude: stairPathFull.endCoordinate.longitude))
             let polyline = GMSPolyline(path: path)
             polyline.strokeColor = .blue
             polyline.strokeWidth = 3.0
@@ -38,7 +41,7 @@ struct GoogleMapEditView: UIViewRepresentable {
 
             // Add marker
             let marker = GMSMarker()
-            marker.position = CLLocationCoordinate2D(latitude: stairPath.centerCoordinate.latitude, longitude: stairPath.centerCoordinate.longitude)
+            marker.position = CLLocationCoordinate2D(latitude: stairPathFull.centerCoordinate.latitude, longitude: stairPathFull.centerCoordinate.longitude)
             marker.title = stairPath.name
             marker.icon = GMSMarker.markerImage(with: .blue)
             marker.map = mapView
@@ -92,7 +95,7 @@ struct GoogleMapEditView: UIViewRepresentable {
 }
 
 struct GoogleMapEditViewContainer: View {
-    @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
+    @StateObject private var apiService = APIService()
     @Query() private var stairPathInProgress: [StairPathInProgress]
 
     @State private var selectedTap: MapLocation?
@@ -102,9 +105,16 @@ struct GoogleMapEditViewContainer: View {
         GoogleMapEditView(
             selectedTap: $selectedTap,
             selectedPath: $selectedPath,
-            stairPaths: stairPaths,
+            stairPaths: apiService.stairPaths,
             stairPathInProgress: stairPathInProgress
         )
+        .onAppear {
+            if apiService.stairPaths.isEmpty {
+                Task {
+                    await apiService.fetchStairPaths()
+                }
+            }
+        }
         .sheet(item: $selectedTap) { selectedTap in
             if selectedPath == nil {
                 AddNewStairPathView(latitude: selectedTap.latitude, longitude: selectedTap.longitude)
@@ -112,12 +122,12 @@ struct GoogleMapEditViewContainer: View {
             }
         }
         .sheet(item: $selectedPath) { selectedPath in
-            StairPathPhotosView(stairPath: selectedPath)
+            StairPathPhotosView(stairPathId: selectedPath.id, stairPath: selectedPath, stairPathFull: StairPathFull(stairPath: selectedPath))
                 .presentationDetents([.fraction(0.5)])
         }
     }
 }
 
 #Preview {
-    GoogleMapEditViewContainer().modelContainer(StairPath.preview)
+    GoogleMapEditViewContainer()
 }

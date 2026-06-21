@@ -15,7 +15,9 @@ struct GooglePhotoMapView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> GMSMapView {
         let camera = GMSCameraPosition.camera(withLatitude: 37.7749, longitude: -122.4194, zoom: 12) // Default to San Francisco
-        let mapView = GMSMapView(frame: .zero, camera: camera)
+        let options = GMSMapViewOptions()
+        options.camera = camera
+        let mapView = GMSMapView(options: options)
         mapView.delegate = context.coordinator
         return mapView
     }
@@ -24,10 +26,11 @@ struct GooglePhotoMapView: UIViewRepresentable {
         mapView.clear() // Clear existing markers and polylines
 
         for stairPath in stairPaths {
+            let stairPathFull = StairPathFull(stairPath: stairPath)
             // Add polyline
             let path = GMSMutablePath()
-            path.add(CLLocationCoordinate2D(latitude: stairPath.startCoordinate.latitude, longitude: stairPath.startCoordinate.longitude))
-            path.add(CLLocationCoordinate2D(latitude: stairPath.endCoordinate.latitude, longitude: stairPath.endCoordinate.longitude))
+            path.add(CLLocationCoordinate2D(latitude: stairPathFull.startCoordinate.latitude, longitude: stairPathFull.startCoordinate.longitude))
+            path.add(CLLocationCoordinate2D(latitude: stairPathFull.endCoordinate.latitude, longitude: stairPathFull.endCoordinate.longitude))
             let polyline = GMSPolyline(path: path)
             polyline.strokeColor = .blue
             polyline.strokeWidth = 3.0
@@ -35,7 +38,7 @@ struct GooglePhotoMapView: UIViewRepresentable {
 
             // Add marker
             let marker = GMSMarker()
-            marker.position = CLLocationCoordinate2D(latitude: stairPath.centerCoordinate.latitude, longitude: stairPath.centerCoordinate.longitude)
+            marker.position = CLLocationCoordinate2D(latitude: stairPathFull.centerCoordinate.latitude, longitude: stairPathFull.centerCoordinate.longitude)
             marker.title = stairPath.name
             marker.icon = GMSMarker.markerImage(with: .red)
             marker.map = mapView
@@ -64,17 +67,24 @@ struct GooglePhotoMapView: UIViewRepresentable {
 }
 
 struct GooglePhotoMapViewContainer: View {
-    @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
+    @StateObject private var apiService = APIService()
     @State private var selectedPath: StairPath?
 
     var body: some View {
-        GooglePhotoMapView(selectedPath: $selectedPath, stairPaths: stairPaths)
+        GooglePhotoMapView(selectedPath: $selectedPath, stairPaths: apiService.stairPaths)
+            .onAppear {
+                if apiService.stairPaths.isEmpty {
+                    Task {
+                        await apiService.fetchStairPaths()
+                    }
+                }
+            }
             .sheet(item: $selectedPath) { selectedPath in
-                StairPathPhotosView(stairPath: selectedPath).presentationDetents([.fraction(0.5)])
+                StairPathPhotosView(stairPathId: selectedPath.id, stairPath: selectedPath, stairPathFull: StairPathFull(stairPath: selectedPath)).presentationDetents([.fraction(0.5)])
             }
     }
 }
 
 #Preview {
-    GooglePhotoMapViewContainer().modelContainer(StairPath.preview)
+    GooglePhotoMapViewContainer()
 }
