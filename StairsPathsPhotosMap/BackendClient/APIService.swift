@@ -12,7 +12,7 @@ class APIService: ObservableObject {
     @Published var stairPaths: [StairPath] = []
 
     func fetchStairPaths() async {
-        guard let url = URL(string: "http://ec2-18-204-202-106.compute-1.amazonaws.com:3000/stairpaths") else { return }
+        guard let url = URL(string: "http://127.0.0.1:8787/stairpaths") else { return }
         
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
@@ -26,7 +26,7 @@ class APIService: ObservableObject {
         }
     }
     func addStairPath(_ stairPath: StairPath) async {
-        guard let url = URL(string: "http://ec2-18-204-202-106.compute-1.amazonaws.com:3000/stairpaths") else { return }
+        guard let url = URL(string: "http://127.0.0.1:8787/stairpaths") else { return }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

@@ -17,14 +17,6 @@ class StairPath: Codable, Identifiable {
     var endLatitude: Double
     var endLongitude: Double
 
-    enum CodingKeys: String, CodingKey {
-        case id, name
-        // case type
-        case startLatitude = "start_latitude"
-        case startLongitude
-        case endLatitude
-        case endLongitude
-    }
     
     init (id: Int, name: String, startLatitude: Double, startLongitude: Double, endLatitude: Double, endLongitude: Double) {
         self.id = id
