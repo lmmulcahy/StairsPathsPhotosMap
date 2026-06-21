@@ -13,6 +13,7 @@ struct AddNewStairPathView: View {
     @Environment(\.modelContext) private var modelContext
     @Query() private var stairPathInProgress: [StairPathInProgress]
 
+    @ObservedObject var apiService: APIService
     var latitude: Double
     var longitude: Double
 
@@ -73,7 +74,6 @@ struct AddNewStairPathView: View {
                         )
                         
                         Task {
-                            let apiService = APIService()
                             await apiService.addStairPath(newPath)
                         }
                         
@@ -121,5 +121,5 @@ struct AddNewStairPathView: View {
 }
 
 #Preview {
-    AddNewStairPathView(latitude: 37.7749, longitude: -122.4194)
+    AddNewStairPathView(apiService: APIService(), latitude: 37.7749, longitude: -122.4194)
 }

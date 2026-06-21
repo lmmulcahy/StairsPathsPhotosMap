@@ -124,7 +124,7 @@ struct GoogleMapEditViewContainer: View {
         }
         .sheet(item: $selectedTap) { selectedTap in
             if selectedPath == nil {
-                AddNewStairPathView(latitude: selectedTap.latitude, longitude: selectedTap.longitude)
+                AddNewStairPathView(apiService: apiService, latitude: selectedTap.latitude, longitude: selectedTap.longitude)
                     .presentationDetents([.height(250)])
             }
         }
