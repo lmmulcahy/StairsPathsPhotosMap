@@ -60,6 +60,6 @@ struct StartTab: View {
     }
 }
 
-#Preview {
-    StartTab().modelContainer(StairPath.preview)
-}
+ #Preview {
+     StartTab()
+ }
