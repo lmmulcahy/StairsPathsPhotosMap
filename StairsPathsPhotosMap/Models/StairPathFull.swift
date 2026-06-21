@@ -1,45 +1,33 @@
 //
-//  StairPath.swift
+//  StairPathFull.swift
 //  StairsPathsPhotosMap
 //
-//  Created by Luke Mulcahy on 11/30/24.
+//  Created by Luke Mulcahy on 12/8/24.
 //
 
 import MapKit
 import SwiftUI
 
-class StairPath: Codable, Identifiable {
-    var id: Int
-    var name: String
-    // var type: StairPathType
-    var startLatitude: Double
-    var startLongitude: Double
-    var endLatitude: Double
-    var endLongitude: Double
-
-    enum CodingKeys: String, CodingKey {
-        case id, name
-        // case type
-        case startLatitude = "start_latitude"
-        case startLongitude
-        case endLatitude
-        case endLongitude
+class StairPathFull: ObservableObject {
+    var stairPath: StairPath
+    @Published var photos: [Data]
+    
+    init (stairPath: StairPath) {
+        self.stairPath = stairPath
+        self.photos = []
     }
     
-    init (id: Int, name: String, startLatitude: Double, startLongitude: Double, endLatitude: Double, endLongitude: Double) {
-        self.id = id
-        self.name = name
-        // self.type = type
-        self.startLatitude = startLatitude
-        self.startLongitude = startLongitude
-        self.endLatitude = endLatitude
-        self.endLongitude = endLongitude
+    var startCoordinate: CLLocationCoordinate2D {
+        .init(latitude: stairPath.startLatitude, longitude: stairPath.startLongitude)
     }
-}
-
-enum StairPathType: String, Codable, CaseIterable {
-    case stairs = "Stairs"
-    case path = "Path"
+    
+    var endCoordinate: CLLocationCoordinate2D {
+        .init(latitude: stairPath.endLatitude, longitude: stairPath.endLongitude)
+    }
+    
+    var centerCoordinate: CLLocationCoordinate2D {
+        .init(latitude: (stairPath.startLatitude + stairPath.endLatitude) / 2, longitude: (stairPath.startLongitude + stairPath.endLongitude) / 2)
+    }
 }
 
 /*
@@ -60,6 +48,10 @@ extension StairPath {
         container.mainContext.insert(filbertSteps)
         let moreSteps: StairPath = .init(name: "More St Steps", type: .stairs, startLatitude: 37.785889, startLongitude: -122.425264, endLatitude: 37.79134, endLongitude: -122.403372)
         container.mainContext.insert(moreSteps)
+        /*
+        let inProgress: StairPathInProgress = .init(name: "blahhh!!!!", start: MapLocation(latitude: 37.785, longitude: -122.427), end: MapLocation(latitude: 37.800, longitude: -122.427))
+        container.mainContext.insert(inProgress)
+         */
         return container
     }
 }

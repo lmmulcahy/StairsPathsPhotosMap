@@ -9,8 +9,11 @@ import PhotosUI
 import SwiftUI
 
 struct StairPathPhotosView: View {
+    var stairPathId: Int
     var stairPath: StairPath
-    
+    @ObservedObject var stairPathFull: StairPathFull
+    @StateObject private var apiService = APIService()
+
     @State private var selectedItems: [PhotosPickerItem] = []
 
     var body: some View {
@@ -19,14 +22,14 @@ struct StairPathPhotosView: View {
             PhotosPicker(selection: $selectedItems, maxSelectionCount: 10, selectionBehavior: .continuousAndOrdered, matching: .images) {
                 Label("Add photos", systemImage: "photo")
             }
-            if stairPath.photos.isEmpty {
+            if stairPathFull.photos.isEmpty {
                 ContentUnavailableView("No Photos", systemImage: "photo.on.rectangle", description: Text("To get started, select some photos above"))
                     .frame(height: 300)
             } else {
                 ScrollView(.horizontal) {
                     LazyHStack {
-                        ForEach(0..<stairPath.photos.count, id: \.self) { index in
-                            let uiImage = UIImage(data: stairPath.photos[index])
+                        ForEach(0..<stairPathFull.photos.count, id: \.self) { index in
+                            let uiImage = UIImage(data: stairPathFull.photos[index])
                             if let uiImage {
                                 Image(uiImage: uiImage)
                                     .resizable()
@@ -49,7 +52,7 @@ struct StairPathPhotosView: View {
                 for item in addedItems {
                     if let data = try? await item.loadTransferable(type: Data.self),
                        let downsized = Self.downsized(data) {
-                        stairPath.photos.append(downsized)
+                        stairPathFull.photos.append(downsized)
                     }
                 }
             }
