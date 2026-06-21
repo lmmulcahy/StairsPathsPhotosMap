@@ -20,88 +20,78 @@ struct AddNewStairPathView: View {
     @State private var type: StairPathType = .stairs
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack() {
-                // Title
-                Text(stairPathInProgress.isEmpty ? "Start a New Path" : "Complete the Path")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .multilineTextAlignment(.center)
-                    .padding(.top)
-
-                if !stairPathInProgress.isEmpty {
-                    // Name Input
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Name")
-                            .font(.headline)
-                        TextField("Enter name...", text: $name)
-                            .textFieldStyle(.roundedBorder)
-                            .padding(.horizontal)
-                    }
-
-                    // Type Picker
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Type")
-                            .font(.headline)
-                        Picker("Type", selection: $type) {
-                            ForEach(StairPathType.allCases, id: \.self) { type in
-                                Text(type.rawValue.capitalized).tag(type)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .padding()
-                    }
-
-                    Button(action: {
-                        let newPath = StairPath(
-                            id: Int.random(in: 1...1000000), // temp id
-                            name: name,
-                            startLatitude: stairPathInProgress[0].start.latitude,
-                            startLongitude: stairPathInProgress[0].start.longitude,
-                            endLatitude: latitude,
-                            endLongitude: longitude
-                        )
-                        
-                        Task {
-                            let apiService = APIService()
-                            await apiService.addStairPath(newPath)
-                        }
-                        
-                        modelContext.delete(stairPathInProgress[0])
-                        do {
-                            try modelContext.save()
-                        } catch { }
-                        dismiss()
-                    }) {
-                        Label("End Stairway or Path", systemImage: "checkmark")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(name.isEmpty ? Color.gray : Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                    .disabled(name.isEmpty)
-                    .padding()
-                } else {
-                    // Action Button
-                    Button(action: {
-                        modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
-                        dismiss()
-                    }) {
-                        Label("Start Stairway or Path", systemImage: "plus")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                    .padding()
+        VStack(spacing: 20) {
+            // Header
+            VStack(spacing: 4) {
+                Text(stairPathInProgress.isEmpty ? "Start New Path" : "Complete Path")
+                    .font(.headline)
+                
+                HStack(spacing: 12) {
+                    Label(String(format: "%.5f", latitude), systemImage: "arrow.left.and.right")
+                    Label(String(format: "%.5f", longitude), systemImage: "arrow.up.and.down")
                 }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
-            .frame(height: geometry.size.height) // Ensure it fits within the available height
-            .padding()
+            .padding(.top)
+
+            if !stairPathInProgress.isEmpty {
+                VStack(spacing: 16) {
+                    TextField("Name your path...", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                        .padding(.horizontal)
+
+                    Picker("Type", selection: $type) {
+                        ForEach(StairPathType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                }
+
+                Button {
+                    let newPath = StairPath(
+                        id: Int.random(in: 1...1000000), // temp id
+                        name: name,
+                        startLatitude: stairPathInProgress[0].start.latitude,
+                        startLongitude: stairPathInProgress[0].start.longitude,
+                        endLatitude: latitude,
+                        endLongitude: longitude
+                    )
+                    
+                    Task {
+                        let apiService = APIService()
+                        await apiService.addStairPath(newPath)
+                    }
+                    
+                    modelContext.delete(stairPathInProgress[0])
+                    do {
+                        try modelContext.save()
+                    } catch { }
+                    dismiss()
+                } label: {
+                    Label("Save Path", systemImage: "checkmark.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(name.isEmpty)
+                .padding(.horizontal)
+            } else {
+                Spacer()
+                Button {
+                    modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
+                    dismiss()
+                } label: {
+                    Label("Start Path Here", systemImage: "mappin.and.ellipse")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .padding(.horizontal)
+            }
+            Spacer()
         }
     }
 }
