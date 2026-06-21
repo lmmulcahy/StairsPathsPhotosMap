@@ -5,25 +5,40 @@
 //  Created by Luke Mulcahy on 11/30/24.
 //
 
+import Foundation
 import SwiftUI
 import SwiftData
 
 struct StairPathsListView: View {
-    @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
+    @Query() private var stairPathInProgress: [StairPathInProgress]
+    @StateObject private var apiService = APIService()
 
     var body: some View {
         VStack {
-            List(stairPaths) { stairPath in
+            List(apiService.stairPaths) { stairPath in
                 HStack {
                     Text(stairPath.name)
                     Spacer()
-                    Text(stairPath.type.rawValue).foregroundStyle(.secondary)
                 }
             }
+            .refreshable {
+                await apiService.fetchStairPaths()
+            }
+            .onAppear {
+                if apiService.stairPaths.isEmpty {
+                    Task {
+                        await apiService.fetchStairPaths()
+                    }
+                }
+            }
+            Text("Count: " + String(apiService.stairPaths.count))
+            Text("isEmpty: " + String(apiService.stairPaths.isEmpty))
         }
     }
 }
 
-#Preview {
-    StairPathsListView().modelContainer(StairPath.preview)
-}
+/*
+ #Preview {
+ StairPathsListView().modelContainer(StairPath.preview)
+ }
+ */
