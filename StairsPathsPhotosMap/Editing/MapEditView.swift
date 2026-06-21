@@ -43,6 +43,13 @@ struct MapEditView: View {
                     }
                 }
             }
+            .overlay(alignment: .top) {
+                Text(stairPathInProgress.isEmpty ? "Tap the map to set the start location" : "Tap the map to set the end location")
+                    .font(.headline)
+                    .padding()
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .padding(.top)
+            }
             .onAppear {
                 if apiService.stairPaths.isEmpty {
                     Task {

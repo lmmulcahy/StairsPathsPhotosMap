@@ -50,45 +50,69 @@ struct AddNewStairPathView: View {
                     .padding(.horizontal)
                 }
 
-                Button {
-                    let newPath = StairPath(
-                        id: Int.random(in: 1...1000000), // temp id
-                        name: name,
-                        startLatitude: stairPathInProgress[0].start.latitude,
-                        startLongitude: stairPathInProgress[0].start.longitude,
-                        endLatitude: latitude,
-                        endLongitude: longitude
-                    )
-                    
-                    Task {
-                        let apiService = APIService()
-                        await apiService.addStairPath(newPath)
+                HStack(spacing: 12) {
+                    Button(role: .destructive) {
+                        modelContext.delete(stairPathInProgress[0])
+                        do { try modelContext.save() } catch { }
+                        dismiss()
+                    } label: {
+                        Image(systemName: "trash")
                     }
-                    
-                    modelContext.delete(stairPathInProgress[0])
-                    do {
-                        try modelContext.save()
-                    } catch { }
-                    dismiss()
-                } label: {
-                    Label("Save Path", systemImage: "checkmark.circle.fill")
-                        .frame(maxWidth: .infinity)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .tint(.red)
+
+                    Button {
+                        let newPath = StairPath(
+                            id: Int.random(in: 1...1000000), // temp id
+                            name: name,
+                            startLatitude: stairPathInProgress[0].start.latitude,
+                            startLongitude: stairPathInProgress[0].start.longitude,
+                            endLatitude: latitude,
+                            endLongitude: longitude
+                        )
+                        
+                        Task {
+                            let apiService = APIService()
+                            await apiService.addStairPath(newPath)
+                        }
+                        
+                        modelContext.delete(stairPathInProgress[0])
+                        do {
+                            try modelContext.save()
+                        } catch { }
+                        dismiss()
+                    } label: {
+                        Label("Save Path", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(name.isEmpty)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(name.isEmpty)
                 .padding(.horizontal)
             } else {
                 Spacer()
-                Button {
-                    modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
-                    dismiss()
-                } label: {
-                    Label("Start Path Here", systemImage: "mappin.and.ellipse")
-                        .frame(maxWidth: .infinity)
+                VStack(spacing: 12) {
+                    Button {
+                        modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
+                        dismiss()
+                    } label: {
+                        Label("Start Path Here", systemImage: "mappin.and.ellipse")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+
+                    Button(role: .cancel) {
+                        dismiss()
+                    } label: {
+                        Text("Cancel")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
                 .padding(.horizontal)
             }
             Spacer()
