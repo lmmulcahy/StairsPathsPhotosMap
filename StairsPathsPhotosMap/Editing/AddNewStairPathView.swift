@@ -53,18 +53,24 @@ struct AddNewStairPathView: View {
                     }
 
                     Button(action: {
-                        do {
-                            try StairPathEditing.completePath(
-                                name: name,
-                                type: type,
-                                endLatitude: latitude,
-                                endLongitude: longitude,
-                                from: stairPathInProgress[0],
-                                in: modelContext
-                            )
-                        } catch {
-                            print("Failed to save: \(error)")
+                        let newPath = StairPath(
+                            id: Int.random(in: 1...1000000), // temp id
+                            name: name,
+                            startLatitude: stairPathInProgress[0].start.latitude,
+                            startLongitude: stairPathInProgress[0].start.longitude,
+                            endLatitude: latitude,
+                            endLongitude: longitude
+                        )
+                        
+                        Task {
+                            let apiService = APIService()
+                            await apiService.addStairPath(newPath)
                         }
+                        
+                        modelContext.delete(stairPathInProgress[0])
+                        do {
+                            try modelContext.save()
+                        } catch { }
                         dismiss()
                     }) {
                         Label("End Stairway or Path", systemImage: "checkmark")
@@ -80,7 +86,7 @@ struct AddNewStairPathView: View {
                 } else {
                     // Action Button
                     Button(action: {
-                        StairPathEditing.startPath(at: MapLocation(latitude: latitude, longitude: longitude), in: modelContext)
+                        modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
                         dismiss()
                     }) {
                         Label("Start Stairway or Path", systemImage: "plus")
