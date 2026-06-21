@@ -45,15 +45,26 @@ struct StartTab: View {
         }
     }
 
+    private var activeMapType: MapType {
+        if preferredMapType == .google {
+            if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_API_KEY") as? String, !apiKey.isEmpty {
+                return .google
+            } else {
+                return .apple
+            }
+        }
+        return .apple
+    }
+
     @ViewBuilder private var photoMap: some View {
-        switch preferredMapType {
+        switch activeMapType {
         case .apple: PhotoMapView()
         case .google: GooglePhotoMapViewContainer()
         }
     }
 
     @ViewBuilder private var editMap: some View {
-        switch preferredMapType {
+        switch activeMapType {
         case .apple: MapEditView()
         case .google: GoogleMapEditViewContainer()
         }
