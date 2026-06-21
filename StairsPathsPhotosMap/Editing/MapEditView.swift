@@ -10,20 +10,25 @@ import SwiftData
 import SwiftUI
 
 struct MapEditView: View {
-    @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
+    // @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
     @Query() private var stairPathInProgress: [StairPathInProgress]
+    @StateObject private var apiService = APIService()
 
     @State private var selectedTap: MapLocation?
-    @State var selectedPath: StairPath?
+    @State var startedStairPath: MapLocation?
+    @State var selectedPathId: Int?
     var body: some View {
         MapReader { proxy in
-            Map(selection: $selectedPath) {
-                ForEach(stairPaths) { stairPath in
+            Map(selection: $selectedPathId) {
+                ForEach(apiService.stairPaths) { stairPath in
+                    let stairPathFull = StairPathFull(stairPath: stairPath)
                     Group {
-                        MapPolyline(coordinates: [stairPath.startCoordinate, stairPath.endCoordinate])
+                        MapPolyline(coordinates: [stairPathFull.startCoordinate, stairPathFull.endCoordinate])
                             .stroke(.blue, lineWidth: 3)
-                        Annotation(stairPath.name, coordinate: stairPath.centerCoordinate, anchor: .bottom) {}
-                    }.tag(stairPath)
+                        Annotation(stairPath.name, coordinate: stairPathFull.centerCoordinate, anchor: .bottom) {
+                            Circle().fill(.blue).frame(width: 8, height: 8)
+                        }
+                    }.tag(stairPath.id)
                 }
                 ForEach(stairPathInProgress) { stairPathInProgress in
                     Annotation("Start", coordinate: stairPathInProgress.start.coordinate, anchor: .bottom) {
@@ -38,29 +43,33 @@ struct MapEditView: View {
                     }
                 }
             }
+            .onAppear {
+                if apiService.stairPaths.isEmpty {
+                    Task {
+                        await apiService.fetchStairPaths()
+                    }
+                }
+            }
             .onTapGesture { position in
                 if let coordinate = proxy.convert(position, from: .local) {
-                    if selectedPath == nil {
+                    if selectedPathId == nil {
                         selectedTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
                     } else {
                         selectedTap = nil
+                        selectedPathId = nil
                     }
                 }
             }
             .sheet(item: $selectedTap) { selectedTap in
-                if selectedPath == nil {
+                if selectedPathId == nil {
                     AddNewStairPathView(latitude: selectedTap.latitude, longitude: selectedTap.longitude)
                         .presentationDetents([.height(250)])
                 }
-            }
-            .sheet(item: $selectedPath) { selectedPath in
-                StairPathPhotosView(stairPath: selectedPath)
-                    .presentationDetents([.fraction(0.5)])
             }
         }
     }
 }
 
 #Preview {
-    MapEditView().modelContainer(StairPath.preview)
+    MapEditView()
 }
