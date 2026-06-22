@@ -9,9 +9,9 @@ import SwiftData
 
 @Model
 class StairPathInProgress {
-    var start: MapLocation
+    var points: [MapLocation]
     
-    init(start: MapLocation) {
-        self.start = start
+    init(points: [MapLocation] = []) {
+        self.points = points
     }
 }

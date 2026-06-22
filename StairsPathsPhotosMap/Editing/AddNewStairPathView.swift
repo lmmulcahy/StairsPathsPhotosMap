@@ -14,8 +14,6 @@ struct AddNewStairPathView: View {
     @Query() private var stairPathInProgress: [StairPathInProgress]
 
     @ObservedObject var apiService: APIService
-    var latitude: Double
-    var longitude: Double
 
     @State private var name = ""
     @State private var type: StairPathType = .stairs
@@ -24,15 +22,14 @@ struct AddNewStairPathView: View {
         VStack(spacing: 20) {
             // Header
             VStack(spacing: 4) {
-                Text(stairPathInProgress.isEmpty ? "Start New Path" : "Complete Path")
+                Text("Complete Path")
                     .font(.headline)
                 
-                HStack(spacing: 12) {
-                    Label(String(format: "%.5f", latitude), systemImage: "arrow.left.and.right")
-                    Label(String(format: "%.5f", longitude), systemImage: "arrow.up.and.down")
+                if let inProgress = stairPathInProgress.first {
+                    Text("\(inProgress.points.count) points")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
             .padding(.top)
 
@@ -64,13 +61,25 @@ struct AddNewStairPathView: View {
                     .tint(.red)
 
                     Button {
+                        guard let inProgress = stairPathInProgress.first, let start = inProgress.points.first, let end = inProgress.points.last else { return }
+                        
+                        // We serialize the points into pathData JSON string
+                        let pathDataArr = inProgress.points.map { [$0.latitude, $0.longitude] }
+                        let pathDataStr: String?
+                        if let data = try? JSONEncoder().encode(pathDataArr), let str = String(data: data, encoding: .utf8) {
+                            pathDataStr = str
+                        } else {
+                            pathDataStr = nil
+                        }
+
                         let newPath = StairPath(
                             id: Int.random(in: 1...1000000), // temp id
                             name: name,
-                            startLatitude: stairPathInProgress[0].start.latitude,
-                            startLongitude: stairPathInProgress[0].start.longitude,
-                            endLatitude: latitude,
-                            endLongitude: longitude
+                            startLatitude: start.latitude,
+                            startLongitude: start.longitude,
+                            endLatitude: end.latitude,
+                            endLongitude: end.longitude,
+                            pathData: pathDataStr
                         )
                         
                         Task {
@@ -91,29 +100,6 @@ struct AddNewStairPathView: View {
                     .disabled(name.isEmpty)
                 }
                 .padding(.horizontal)
-            } else {
-                Spacer()
-                VStack(spacing: 12) {
-                    Button {
-                        modelContext.insert(StairPathInProgress(start: MapLocation(latitude: latitude, longitude: longitude)))
-                        dismiss()
-                    } label: {
-                        Label("Start Path Here", systemImage: "mappin.and.ellipse")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-
-                    Button(role: .cancel) {
-                        dismiss()
-                    } label: {
-                        Text("Cancel")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                }
-                .padding(.horizontal)
             }
             Spacer()
         }
@@ -121,5 +107,5 @@ struct AddNewStairPathView: View {
 }
 
 #Preview {
-    AddNewStairPathView(apiService: APIService(), latitude: 37.7749, longitude: -122.4194)
+    AddNewStairPathView(apiService: APIService())
 }

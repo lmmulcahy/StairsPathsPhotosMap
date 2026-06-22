@@ -16,9 +16,9 @@ class StairPath: Codable, Identifiable {
     var startLongitude: Double
     var endLatitude: Double
     var endLongitude: Double
-
+    var pathData: String?
     
-    init (id: Int, name: String, startLatitude: Double, startLongitude: Double, endLatitude: Double, endLongitude: Double) {
+    init (id: Int, name: String, startLatitude: Double, startLongitude: Double, endLatitude: Double, endLongitude: Double, pathData: String? = nil) {
         self.id = id
         self.name = name
         // self.type = type
@@ -26,6 +26,7 @@ class StairPath: Codable, Identifiable {
         self.startLongitude = startLongitude
         self.endLatitude = endLatitude
         self.endLongitude = endLongitude
+        self.pathData = pathData
     }
 }
 

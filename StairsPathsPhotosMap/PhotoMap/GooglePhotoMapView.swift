@@ -29,8 +29,9 @@ struct GooglePhotoMapView: UIViewRepresentable {
             let stairPathFull = StairPathFull(stairPath: stairPath)
             // Add polyline
             let path = GMSMutablePath()
-            path.add(CLLocationCoordinate2D(latitude: stairPathFull.startCoordinate.latitude, longitude: stairPathFull.startCoordinate.longitude))
-            path.add(CLLocationCoordinate2D(latitude: stairPathFull.endCoordinate.latitude, longitude: stairPathFull.endCoordinate.longitude))
+            for coord in stairPathFull.coordinates {
+                path.add(coord)
+            }
             let polyline = GMSPolyline(path: path)
             polyline.strokeColor = .blue
             polyline.strokeWidth = 3.0
