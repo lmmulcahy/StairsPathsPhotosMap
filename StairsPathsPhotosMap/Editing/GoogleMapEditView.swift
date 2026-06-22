@@ -10,10 +10,10 @@ import SwiftUI
 import GoogleMaps
 
 struct GoogleMapEditView: UIViewRepresentable {
-    @Binding var selectedTap: MapLocation?
     @Binding var selectedPath: StairPath?
     var stairPaths: [StairPath]
     var stairPathInProgress: [StairPathInProgress]
+    var onMapTap: ((CLLocationCoordinate2D) -> Void)?
 
     func makeUIView(context: Context) -> GMSMapView {
         let camera = GMSCameraPosition.camera(withLatitude: 37.7749, longitude: -122.4194, zoom: 12) // Default to San Francisco
@@ -50,19 +50,26 @@ struct GoogleMapEditView: UIViewRepresentable {
 
         // Add in-progress stair paths
         for inProgress in stairPathInProgress {
-            let marker = GMSMarker()
-            marker.position = CLLocationCoordinate2D(latitude: inProgress.start.coordinate.latitude, longitude: inProgress.start.coordinate.longitude)
-            marker.title = "Start"
-            marker.icon = GMSMarker.markerImage(with: .blue)
-            marker.map = mapView
-        }
+            if inProgress.points.isEmpty { continue }
 
-        // Add selected tap marker
-        if let selectedTap = selectedTap {
-            let marker = GMSMarker()
-            marker.position = CLLocationCoordinate2D(latitude: selectedTap.latitude, longitude: selectedTap.longitude)
-            marker.icon = GMSMarker.markerImage(with: .yellow)
-            marker.map = mapView
+            if inProgress.points.count > 1 {
+                let path = GMSMutablePath()
+                for pt in inProgress.points {
+                    path.add(CLLocationCoordinate2D(latitude: pt.latitude, longitude: pt.longitude))
+                }
+                let polyline = GMSPolyline(path: path)
+                polyline.strokeColor = .red
+                polyline.strokeWidth = 3.0
+                polyline.map = mapView
+            }
+
+            for (index, pt) in inProgress.points.enumerated() {
+                let marker = GMSMarker()
+                marker.position = CLLocationCoordinate2D(latitude: pt.latitude, longitude: pt.longitude)
+                marker.title = index == 0 ? "Start" : (index == inProgress.points.count - 1 ? "End" : "Point \(index + 1)")
+                marker.icon = GMSMarker.markerImage(with: .red)
+                marker.map = mapView
+            }
         }
     }
 
@@ -79,9 +86,7 @@ struct GoogleMapEditView: UIViewRepresentable {
 
         func mapView(_ mapView: GMSMapView, didTapAt coordinate: CLLocationCoordinate2D) {
             if parent.selectedPath == nil {
-                parent.selectedTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-            } else {
-                parent.selectedTap = nil
+                parent.onMapTap?(coordinate)
             }
         }
 
@@ -97,19 +102,56 @@ struct GoogleMapEditView: UIViewRepresentable {
 struct GoogleMapEditViewContainer: View {
     @EnvironmentObject var apiService: APIService
     @Query() private var stairPathInProgress: [StairPathInProgress]
+    @Environment(\.modelContext) private var modelContext
 
-    @State private var selectedTap: MapLocation?
+    @State private var showSaveSheet = false
     @State private var selectedPath: StairPath?
 
     var body: some View {
         GoogleMapEditView(
-            selectedTap: $selectedTap,
             selectedPath: $selectedPath,
             stairPaths: apiService.stairPaths,
-            stairPathInProgress: stairPathInProgress
+            stairPathInProgress: stairPathInProgress,
+            onMapTap: { coordinate in
+                let newTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                if let inProgress = stairPathInProgress.first {
+                    inProgress.points.append(newTap)
+                } else {
+                    let newInProgress = StairPathInProgress(points: [newTap])
+                    modelContext.insert(newInProgress)
+                }
+            }
         )
+        .overlay(alignment: .bottom) {
+            if let inProgress = stairPathInProgress.first, !inProgress.points.isEmpty {
+                VStack(spacing: 12) {
+                    if inProgress.points.count >= 2 {
+                        Button {
+                            showSaveSheet = true
+                        } label: {
+                            Text("Finish Drawing Path")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .padding(.horizontal)
+                    }
+
+                    Button(role: .cancel) {
+                        modelContext.delete(inProgress)
+                    } label: {
+                        Text("Cancel")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .padding(.horizontal)
+                }
+                .padding(.bottom, 32)
+            }
+        }
         .overlay(alignment: .top) {
-            Text(stairPathInProgress.isEmpty ? "Tap the map to set the start location" : "Tap the map to set the end location")
+            Text(stairPathInProgress.isEmpty ? "Tap to add start point" : "Keep tapping to add points")
                 .font(.headline)
                 .padding()
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
@@ -122,11 +164,9 @@ struct GoogleMapEditViewContainer: View {
                 }
             }
         }
-        .sheet(item: $selectedTap) { selectedTap in
-            if selectedPath == nil {
-                AddNewStairPathView(apiService: apiService, latitude: selectedTap.latitude, longitude: selectedTap.longitude)
-                    .presentationDetents([.height(250)])
-            }
+        .sheet(isPresented: $showSaveSheet) {
+            AddNewStairPathView(apiService: apiService)
+                .presentationDetents([.height(250)])
         }
         .sheet(item: $selectedPath) { selectedPath in
             StairPathPhotosView(stairPathId: selectedPath.id, stairPath: selectedPath, stairPathFull: StairPathFull(stairPath: selectedPath))

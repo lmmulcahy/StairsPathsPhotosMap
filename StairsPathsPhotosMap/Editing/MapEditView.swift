@@ -14,9 +14,10 @@ struct MapEditView: View {
     @Query() private var stairPathInProgress: [StairPathInProgress]
     @EnvironmentObject var apiService: APIService
 
-    @State private var selectedTap: MapLocation?
-    @State var startedStairPath: MapLocation?
+    @State private var showSaveSheet = false
     @State var selectedPathId: Int?
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         MapReader { proxy in
             Map(selection: $selectedPathId) {
@@ -31,20 +32,47 @@ struct MapEditView: View {
                     }.tag(stairPath.id)
                 }
                 ForEach(stairPathInProgress) { stairPathInProgress in
-                    Annotation("Start", coordinate: stairPathInProgress.start.coordinate, anchor: .bottom) {
-                        Image(systemName: "mappin").foregroundStyle(.blue)
+                    ForEach(Array(stairPathInProgress.points.enumerated()), id: \.offset) { index, pt in
+                        Annotation(index == 0 ? "Start" : "Point \(index+1)", coordinate: pt.coordinate, anchor: .bottom) {
+                            Image(systemName: "mappin").foregroundStyle(.blue)
+                        }
                     }
-                }
-                if let selectedTap {
-                    let selectedCoordinate = CLLocationCoordinate2D(
-                        latitude: selectedTap.latitude, longitude: selectedTap.longitude)
-                    Annotation("", coordinate: selectedCoordinate, anchor: .bottom) {
-                        Image(systemName: "mappin").foregroundStyle(.yellow)
+                    if stairPathInProgress.points.count > 1 {
+                        MapPolyline(coordinates: stairPathInProgress.points.map { $0.coordinate })
+                            .stroke(.red, lineWidth: 3)
                     }
                 }
             }
+            .overlay(alignment: .bottom) {
+                if let inProgress = stairPathInProgress.first, !inProgress.points.isEmpty {
+                    VStack(spacing: 12) {
+                        if inProgress.points.count >= 2 {
+                            Button {
+                                showSaveSheet = true
+                            } label: {
+                                Text("Finish Drawing Path")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
+                            .padding(.horizontal)
+                        }
+
+                        Button(role: .cancel) {
+                            modelContext.delete(inProgress)
+                        } label: {
+                            Text("Cancel")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .padding(.horizontal)
+                    }
+                    .padding(.bottom, 32)
+                }
+            }
             .overlay(alignment: .top) {
-                Text(stairPathInProgress.isEmpty ? "Tap the map to set the start location" : "Tap the map to set the end location")
+                Text(stairPathInProgress.isEmpty ? "Tap to start location" : "Keep tapping to add points")
                     .font(.headline)
                     .padding()
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
@@ -60,16 +88,21 @@ struct MapEditView: View {
             .onTapGesture { position in
                 if let coordinate = proxy.convert(position, from: .local) {
                     if selectedPathId == nil {
-                        selectedTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                        let newTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                        if let inProgress = stairPathInProgress.first {
+                            inProgress.points.append(newTap)
+                        } else {
+                            let newInProgress = StairPathInProgress(points: [newTap])
+                            modelContext.insert(newInProgress)
+                        }
                     } else {
-                        selectedTap = nil
                         selectedPathId = nil
                     }
                 }
             }
-            .sheet(item: $selectedTap) { selectedTap in
+            .sheet(isPresented: $showSaveSheet) {
                 if selectedPathId == nil {
-                    AddNewStairPathView(apiService: apiService, latitude: selectedTap.latitude, longitude: selectedTap.longitude)
+                    AddNewStairPathView(apiService: apiService)
                         .presentationDetents([.height(250)])
                 }
             }
