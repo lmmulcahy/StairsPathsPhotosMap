@@ -17,6 +17,7 @@ struct MapEditView: View {
     @State private var showSaveSheet = false
     @State var selectedPathId: Int?
     @Environment(\.modelContext) private var modelContext
+    @State private var refreshTrigger = 0
 
     var body: some View {
         MapReader { proxy in
@@ -43,6 +44,7 @@ struct MapEditView: View {
                     }
                 }
             }
+            .id(refreshTrigger)
             .overlay(alignment: .bottom) {
                 if let inProgress = stairPathInProgress.first, !inProgress.points.isEmpty {
                     VStack(spacing: 12) {
@@ -89,12 +91,17 @@ struct MapEditView: View {
                 if let coordinate = proxy.convert(position, from: .local) {
                     if selectedPathId == nil {
                         let newTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                        modelContext.insert(newTap)
                         if let inProgress = stairPathInProgress.first {
                             inProgress.points.append(newTap)
+                            let newPoints = inProgress.points
+                            inProgress.points = newPoints
                         } else {
                             let newInProgress = StairPathInProgress(points: [newTap])
                             modelContext.insert(newInProgress)
                         }
+                        try? modelContext.save()
+                        refreshTrigger += 1
                     } else {
                         selectedPathId = nil
                     }

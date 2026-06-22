@@ -13,6 +13,7 @@ struct GoogleMapEditView: UIViewRepresentable {
     @Binding var selectedPath: StairPath?
     var stairPaths: [StairPath]
     var stairPathInProgress: [StairPathInProgress]
+    var refreshTrigger: Int
     var onMapTap: ((CLLocationCoordinate2D) -> Void)?
 
     func makeUIView(context: Context) -> GMSMapView {
@@ -106,20 +107,25 @@ struct GoogleMapEditViewContainer: View {
 
     @State private var showSaveSheet = false
     @State private var selectedPath: StairPath?
+    @State private var refreshTrigger = 0
 
     var body: some View {
         GoogleMapEditView(
             selectedPath: $selectedPath,
             stairPaths: apiService.stairPaths,
             stairPathInProgress: stairPathInProgress,
+            refreshTrigger: refreshTrigger,
             onMapTap: { coordinate in
                 let newTap = MapLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                modelContext.insert(newTap)
                 if let inProgress = stairPathInProgress.first {
                     inProgress.points.append(newTap)
                 } else {
                     let newInProgress = StairPathInProgress(points: [newTap])
                     modelContext.insert(newInProgress)
                 }
+                try? modelContext.save()
+                refreshTrigger += 1
             }
         )
         .overlay(alignment: .bottom) {
