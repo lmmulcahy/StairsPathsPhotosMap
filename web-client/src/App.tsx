@@ -32,9 +32,8 @@ export default function App() {
   
   // Creation state
   const [isCreating, setIsCreating] = useState(false);
-  const [createStep, setCreateStep] = useState<0|1|2>(0);
-  const [startPoint, setStartPoint] = useState<[number, number] | null>(null);
-  const [endPoint, setEndPoint] = useState<[number, number] | null>(null);
+  const [createStep, setCreateStep] = useState<0|1>(0);
+  const [createPoints, setCreatePoints] = useState<[number, number][]>([]);
   const [newName, setNewName] = useState('');
 
   // Edit state
@@ -90,8 +89,7 @@ export default function App() {
   const handleCreateCancel = () => {
     setIsCreating(false);
     setCreateStep(0);
-    setStartPoint(null);
-    setEndPoint(null);
+    setCreatePoints([]);
     setNewName('');
   };
 
@@ -144,14 +142,18 @@ export default function App() {
   };
 
   const handleSubmitNewPath = async () => {
-    if (!startPoint || !endPoint || !newName) return;
+    if (createPoints.length < 2 || !newName) return;
     
+    const start = createPoints[0];
+    const end = createPoints[createPoints.length - 1];
+
     const payload = {
       name: newName,
-      startLatitude: startPoint[0],
-      startLongitude: startPoint[1],
-      endLatitude: endPoint[0],
-      endLongitude: endPoint[1]
+      startLatitude: start[0],
+      startLongitude: start[1],
+      endLatitude: end[0],
+      endLongitude: end[1],
+      pathData: createPoints
     };
 
     try {
@@ -173,14 +175,8 @@ export default function App() {
   function MapClickHandler() {
     useMapEvents({
       click(e) {
-        if (!isCreating) return;
-        if (createStep === 0) {
-          setStartPoint([e.latlng.lat, e.latlng.lng]);
-          setCreateStep(1);
-        } else if (createStep === 1) {
-          setEndPoint([e.latlng.lat, e.latlng.lng]);
-          setCreateStep(2);
-        }
+        if (!isCreating || createStep !== 0) return;
+        setCreatePoints(prev => [...prev, [e.latlng.lat, e.latlng.lng]]);
       }
     });
     return null;
@@ -203,8 +199,7 @@ export default function App() {
                 setIsCreating(true);
                 setSelectedPath(null);
                 setCreateStep(0);
-                setStartPoint(null);
-                setEndPoint(null);
+                setCreatePoints([]);
               }}
             >
               <Plus size={20} /> Add New Path
@@ -310,10 +305,15 @@ export default function App() {
             )}
 
             {/* Creation Markers */}
-            {startPoint && <Marker position={startPoint} />}
-            {endPoint && <Marker position={endPoint} />}
-            {startPoint && endPoint && (
-              <Polyline positions={[startPoint, endPoint]} color="#ef4444" weight={4} dashArray="5, 10" />
+            {isCreating && createStep === 0 && (
+              <>
+                {createPoints.length > 1 && (
+                  <Polyline positions={createPoints} color="#ef4444" weight={4} dashArray="5, 10" />
+                )}
+                {createPoints.map((pt, i) => (
+                  <Marker key={`create-${i}`} position={pt} />
+                ))}
+              </>
             )}
           </MapContainer>
 
@@ -334,9 +334,20 @@ export default function App() {
                   </button>
                 </div>
                 
-                {createStep === 0 && <p>Tap the map to set the <strong>start</strong> point.</p>}
-                {createStep === 1 && <p>Tap the map to set the <strong>end</strong> point.</p>}
-                {createStep === 2 && (
+                {createStep === 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <p>Tap the map to add points to the path. Add as many points as you need.</p>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => setCreateStep(1)}
+                      disabled={createPoints.length < 2}
+                      style={{ opacity: createPoints.length >= 2 ? 1 : 0.5, cursor: createPoints.length >= 2 ? 'pointer' : 'not-allowed' }}
+                    >
+                      Finish Drawing Path
+                    </button>
+                  </div>
+                )}
+                {createStep === 1 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <input 
                       type="text" 
@@ -345,9 +356,23 @@ export default function App() {
                       onChange={e => setNewName(e.target.value)}
                       style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: 'white' }}
                     />
-                    <button className="btn btn-primary" onClick={handleSubmitNewPath}>
-                      <Check size={18} /> Save Path
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        className="btn btn-primary" 
+                        onClick={handleSubmitNewPath} 
+                        disabled={!newName.trim()}
+                        style={{ flex: 1, opacity: newName.trim() ? 1 : 0.5, cursor: newName.trim() ? 'pointer' : 'not-allowed' }}
+                      >
+                        <Check size={18} /> Save Path
+                      </button>
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={() => setCreateStep(0)} 
+                        style={{ flex: 1 }}
+                      >
+                        Back
+                      </button>
+                    </div>
                   </div>
                 )}
               </motion.div>
