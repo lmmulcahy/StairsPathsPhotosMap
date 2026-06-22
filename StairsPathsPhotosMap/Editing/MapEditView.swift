@@ -20,6 +20,7 @@ struct MapEditView: View {
     @State private var refreshTrigger = 0
 
     var body: some View {
+        let _ = refreshTrigger // Read state to force body re-evaluation on tap
         MapReader { proxy in
             Map(selection: $selectedPathId) {
                 ForEach(apiService.stairPaths) { stairPath in
@@ -44,7 +45,6 @@ struct MapEditView: View {
                     }
                 }
             }
-            .id(refreshTrigger)
             .overlay(alignment: .bottom) {
                 if let inProgress = stairPathInProgress.first, !inProgress.points.isEmpty {
                     VStack(spacing: 12) {
