@@ -11,7 +11,7 @@ import SwiftData
 
 struct StairPathsListView: View {
     @Query() private var stairPathInProgress: [StairPathInProgress]
-    @StateObject private var apiService = APIService()
+    @EnvironmentObject var apiService: APIService
 
     var body: some View {
         VStack {
@@ -37,8 +37,8 @@ struct StairPathsListView: View {
     }
 }
 
-/*
- #Preview {
- StairPathsListView().modelContainer(StairPath.preview)
- }
- */
+ /*
+  #Preview {
+  StairPathsListView().modelContainer(StairPath.preview).environmentObject(APIService())
+  }
+  */

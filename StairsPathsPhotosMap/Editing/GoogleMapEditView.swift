@@ -95,7 +95,7 @@ struct GoogleMapEditView: UIViewRepresentable {
 }
 
 struct GoogleMapEditViewContainer: View {
-    @StateObject private var apiService = APIService()
+    @EnvironmentObject var apiService: APIService
     @Query() private var stairPathInProgress: [StairPathInProgress]
 
     @State private var selectedTap: MapLocation?
@@ -136,5 +136,5 @@ struct GoogleMapEditViewContainer: View {
 }
 
 #Preview {
-    GoogleMapEditViewContainer()
+    GoogleMapEditViewContainer().environmentObject(APIService())
 }

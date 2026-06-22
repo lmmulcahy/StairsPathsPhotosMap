@@ -11,7 +11,7 @@ import SwiftUI
 
 struct PhotoMapView: View {
     @State var selectedPathId: Int?
-    @StateObject private var apiService = APIService()
+    @EnvironmentObject var apiService: APIService
     
     private let locationManager = CLLocationManager()
     var body: some View {
@@ -53,5 +53,5 @@ struct PhotoMapView: View {
 }
 
 #Preview {
-    PhotoMapView()
+    PhotoMapView().environmentObject(APIService())
 }

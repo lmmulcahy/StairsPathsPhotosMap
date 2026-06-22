@@ -34,6 +34,7 @@ struct StairsPathsPhotosMapApp: App {
     var container: ModelContainer
     
     @UIApplicationDelegateAdaptor(StairsPathsPhotosMapAppDelegate.self) var appDelegate
+    @StateObject private var apiService = APIService()
 
     init() {
         do {
@@ -49,6 +50,7 @@ struct StairsPathsPhotosMapApp: App {
             // alongside the test work destabilizes the simulator process.
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 StartTab()
+                    .environmentObject(apiService)
             } else {
                 EmptyView()
             }

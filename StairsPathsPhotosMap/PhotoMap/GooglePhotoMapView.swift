@@ -67,7 +67,7 @@ struct GooglePhotoMapView: UIViewRepresentable {
 }
 
 struct GooglePhotoMapViewContainer: View {
-    @StateObject private var apiService = APIService()
+    @EnvironmentObject var apiService: APIService
     @State private var selectedPath: StairPath?
 
     var body: some View {
@@ -86,5 +86,5 @@ struct GooglePhotoMapViewContainer: View {
 }
 
 #Preview {
-    GooglePhotoMapViewContainer()
+    GooglePhotoMapViewContainer().environmentObject(APIService())
 }

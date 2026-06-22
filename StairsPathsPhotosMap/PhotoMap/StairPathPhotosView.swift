@@ -12,7 +12,6 @@ struct StairPathPhotosView: View {
     var stairPathId: Int
     var stairPath: StairPath
     @ObservedObject var stairPathFull: StairPathFull
-    @StateObject private var apiService = APIService()
 
     @State private var selectedItems: [PhotosPickerItem] = []
 

@@ -12,7 +12,7 @@ import SwiftUI
 struct MapEditView: View {
     // @Query(sort: \StairPath.name) private var stairPaths: [StairPath]
     @Query() private var stairPathInProgress: [StairPathInProgress]
-    @StateObject private var apiService = APIService()
+    @EnvironmentObject var apiService: APIService
 
     @State private var selectedTap: MapLocation?
     @State var startedStairPath: MapLocation?
@@ -78,5 +78,5 @@ struct MapEditView: View {
 }
 
 #Preview {
-    MapEditView()
+    MapEditView().environmentObject(APIService())
 }
