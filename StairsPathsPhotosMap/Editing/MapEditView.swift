@@ -18,6 +18,7 @@ struct MapEditView: View {
     @State var selectedPathId: Int?
     @Environment(\.modelContext) private var modelContext
     @State private var refreshTrigger = 0
+    @State private var localPoints: [CLLocationCoordinate2D] = []
 
     var body: some View {
         let _ = refreshTrigger // Read state to force body re-evaluation on tap
@@ -33,16 +34,14 @@ struct MapEditView: View {
                         }
                     }.tag(stairPath.id)
                 }
-                ForEach(stairPathInProgress) { stairPathInProgress in
-                    ForEach(Array(stairPathInProgress.points.enumerated()), id: \.offset) { index, pt in
-                        Annotation(index == 0 ? "Start" : "Point \(index+1)", coordinate: pt.coordinate, anchor: .bottom) {
-                            Image(systemName: "mappin").foregroundStyle(.blue)
-                        }
+                ForEach(Array(localPoints.enumerated()), id: \.offset) { index, coord in
+                    Annotation(index == 0 ? "Start" : "Point \(index+1)", coordinate: coord, anchor: .bottom) {
+                        Image(systemName: "mappin").foregroundStyle(.blue)
                     }
-                    if stairPathInProgress.points.count > 1 {
-                        MapPolyline(coordinates: stairPathInProgress.points.map { $0.coordinate })
-                            .stroke(.red, lineWidth: 3)
-                    }
+                }
+                if localPoints.count > 1 {
+                    MapPolyline(coordinates: localPoints)
+                        .stroke(.red, lineWidth: 3)
                 }
             }
             .overlay(alignment: .bottom) {
@@ -62,6 +61,7 @@ struct MapEditView: View {
 
                         Button(role: .cancel) {
                             modelContext.delete(inProgress)
+                            localPoints = []
                         } label: {
                             Text("Cancel")
                                 .frame(maxWidth: .infinity)
@@ -81,10 +81,18 @@ struct MapEditView: View {
                     .padding(.top)
             }
             .onAppear {
+                if let inProgress = stairPathInProgress.first {
+                    localPoints = inProgress.points.map { $0.coordinate }
+                }
                 if apiService.stairPaths.isEmpty {
                     Task {
                         await apiService.fetchStairPaths()
                     }
+                }
+            }
+            .onChange(of: stairPathInProgress.count) { old, newCount in
+                if newCount == 0 {
+                    localPoints = []
                 }
             }
             .onTapGesture { position in
@@ -94,12 +102,11 @@ struct MapEditView: View {
                         modelContext.insert(newTap)
                         if let inProgress = stairPathInProgress.first {
                             inProgress.points.append(newTap)
-                            let newPoints = inProgress.points
-                            inProgress.points = newPoints
                         } else {
                             let newInProgress = StairPathInProgress(points: [newTap])
                             modelContext.insert(newInProgress)
                         }
+                        localPoints.append(coordinate)
                         try? modelContext.save()
                         refreshTrigger += 1
                     } else {
