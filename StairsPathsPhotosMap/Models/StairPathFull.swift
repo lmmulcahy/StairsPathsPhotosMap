@@ -25,8 +25,25 @@ class StairPathFull: ObservableObject {
         .init(latitude: stairPath.endLatitude, longitude: stairPath.endLongitude)
     }
     
+    var coordinates: [CLLocationCoordinate2D] {
+        if let pathDataStr = stairPath.pathData,
+           let data = pathDataStr.data(using: .utf8),
+           let points = try? JSONDecoder().decode([[Double]].self, from: data) {
+            return points.compactMap {
+                if $0.count >= 2 { return CLLocationCoordinate2D(latitude: $0[0], longitude: $0[1]) }
+                return nil
+            }
+        }
+        return [startCoordinate, endCoordinate]
+    }
+    
     var centerCoordinate: CLLocationCoordinate2D {
-        .init(latitude: (stairPath.startLatitude + stairPath.endLatitude) / 2, longitude: (stairPath.startLongitude + stairPath.endLongitude) / 2)
+        let coords = coordinates
+        if coords.count >= 2 {
+            let midIndex = coords.count / 2
+            return coords[midIndex]
+        }
+        return .init(latitude: (stairPath.startLatitude + stairPath.endLatitude) / 2, longitude: (stairPath.startLongitude + stairPath.endLongitude) / 2)
     }
 }
 
