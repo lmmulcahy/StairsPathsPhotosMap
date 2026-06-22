@@ -3,15 +3,25 @@ export interface Env {
 	BUCKET: R2Bucket;
 }
 
+const corsHeaders = {
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+	'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+		if (request.method === 'OPTIONS') {
+			return new Response(null, { headers: corsHeaders });
+		}
+
 		const url = new URL(request.url);
 
 		if (url.pathname === '/stairpaths') {
 			if (request.method === 'GET') {
 				const { results } = await env.DB.prepare('SELECT * FROM stairpaths').all();
 				return new Response(JSON.stringify(results), {
-					headers: { 'Content-Type': 'application/json' },
+					headers: { 'Content-Type': 'application/json', ...corsHeaders },
 				});
 			}
 
@@ -31,10 +41,10 @@ export default {
 					
 					return new Response(JSON.stringify(result), {
 						status: 201,
-						headers: { 'Content-Type': 'application/json' },
+						headers: { 'Content-Type': 'application/json', ...corsHeaders },
 					});
 				} catch (e: any) {
-					return new Response(JSON.stringify({ error: e.message }), { status: 400 });
+					return new Response(JSON.stringify({ error: e.message }), { status: 400, headers: corsHeaders });
 				}
 			}
 		}
@@ -46,7 +56,7 @@ export default {
 			if (request.method === 'GET') {
 				const { results } = await env.DB.prepare('SELECT * FROM photos WHERE stairpath_id = ?').bind(stairpathId).all();
 				return new Response(JSON.stringify(results), {
-					headers: { 'Content-Type': 'application/json' },
+					headers: { 'Content-Type': 'application/json', ...corsHeaders },
 				});
 			}
 
@@ -63,10 +73,10 @@ export default {
 					
 					return new Response(JSON.stringify({ id: photoId }), {
 						status: 201,
-						headers: { 'Content-Type': 'application/json' },
+						headers: { 'Content-Type': 'application/json', ...corsHeaders },
 					});
 				} catch (e: any) {
-					return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+					return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
 				}
 			}
 		}
@@ -77,12 +87,12 @@ export default {
 			const photoId = photoMatch[1];
 			if (request.method === 'GET') {
 				const photoRecord = await env.DB.prepare('SELECT object_key FROM photos WHERE id = ?').bind(photoId).first();
-				if (!photoRecord) return new Response('Not found', { status: 404 });
+				if (!photoRecord) return new Response('Not found', { status: 404, headers: corsHeaders });
 				
 				const object = await env.BUCKET.get(photoRecord.object_key as string);
-				if (!object) return new Response('Not found', { status: 404 });
+				if (!object) return new Response('Not found', { status: 404, headers: corsHeaders });
 				
-				const headers = new Headers();
+				const headers = new Headers(corsHeaders);
 				object.writeHttpMetadata(headers);
 				headers.set('etag', object.httpEtag);
 				headers.set('Content-Type', 'image/jpeg');
@@ -91,6 +101,6 @@ export default {
 			}
 		}
 
-		return new Response('Not found', { status: 404 });
+		return new Response('Not found', { status: 404, headers: corsHeaders });
 	},
 };
