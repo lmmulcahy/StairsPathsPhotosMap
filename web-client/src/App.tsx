@@ -21,6 +21,7 @@ interface StairPath {
   startLongitude: number;
   endLatitude: number;
   endLongitude: number;
+  pathData?: string;
 }
 
 export default function App() {
@@ -36,6 +37,10 @@ export default function App() {
   const [endPoint, setEndPoint] = useState<[number, number] | null>(null);
   const [newName, setNewName] = useState('');
 
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editPoints, setEditPoints] = useState<[number, number][]>([]);
+
   useEffect(() => {
     fetch(`${API_BASE}/stairpaths`)
       .then(res => res.json())
@@ -44,8 +49,10 @@ export default function App() {
   }, []);
 
   const handleSelectPath = async (path: StairPath) => {
+    if (isEditing) return;
     setSelectedPath(path);
     setIsCreating(false);
+    setIsEditing(false);
     setPhotos([]);
     setIsLoadingPhotos(true);
     
@@ -66,6 +73,54 @@ export default function App() {
     setStartPoint(null);
     setEndPoint(null);
     setNewName('');
+  };
+
+  const handleEditClick = () => {
+    if (!selectedPath) return;
+    setIsEditing(true);
+    if (selectedPath.pathData) {
+      try {
+        setEditPoints(typeof selectedPath.pathData === 'string' ? JSON.parse(selectedPath.pathData) : selectedPath.pathData);
+      } catch {
+        setEditPoints([
+          [selectedPath.startLatitude, selectedPath.startLongitude],
+          [selectedPath.endLatitude, selectedPath.endLongitude]
+        ]);
+      }
+    } else {
+      setEditPoints([
+        [selectedPath.startLatitude, selectedPath.startLongitude],
+        [selectedPath.endLatitude, selectedPath.endLongitude]
+      ]);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedPath || editPoints.length < 2) return;
+    const start = editPoints[0];
+    const end = editPoints[editPoints.length - 1];
+    const payload = {
+      ...selectedPath,
+      startLatitude: start[0],
+      startLongitude: start[1],
+      endLatitude: end[0],
+      endLongitude: end[1],
+      pathData: editPoints
+    };
+    
+    try {
+      const res = await fetch(`${API_BASE}/stairpaths/${selectedPath.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const updated = await res.json();
+      setPaths(prev => prev.map(p => p.id === updated.id ? updated : p));
+      setSelectedPath(updated);
+      setIsEditing(false);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleSubmitNewPath = async () => {
@@ -164,21 +219,75 @@ export default function App() {
             <MapClickHandler />
 
             {/* Existing Paths */}
-            {paths.map(path => (
-              <Polyline 
-                key={path.id}
-                positions={[
-                  [path.startLatitude, path.startLongitude],
-                  [path.endLatitude, path.endLongitude]
-                ]}
-                color={selectedPath?.id === path.id ? '#a855f7' : '#ef4444'}
-                weight={selectedPath?.id === path.id ? 10 : 6}
-                opacity={selectedPath?.id === path.id ? 1.0 : 0.85}
-                eventHandlers={{
-                  click: () => handleSelectPath(path)
-                }}
-              />
-            ))}
+            {paths.map(path => {
+              if (selectedPath?.id === path.id && isEditing) return null;
+              let positions: [number, number][] = [
+                [path.startLatitude, path.startLongitude],
+                [path.endLatitude, path.endLongitude]
+              ];
+              if (path.pathData) {
+                 try {
+                    positions = typeof path.pathData === 'string' ? JSON.parse(path.pathData) : path.pathData;
+                 } catch {}
+              }
+              return (
+                <Polyline 
+                  key={path.id}
+                  positions={positions}
+                  color={selectedPath?.id === path.id ? '#a855f7' : '#ef4444'}
+                  weight={selectedPath?.id === path.id ? 10 : 6}
+                  opacity={selectedPath?.id === path.id ? 1.0 : 0.85}
+                  eventHandlers={{
+                    click: () => {
+                      if (!isEditing) handleSelectPath(path);
+                    }
+                  }}
+                />
+              );
+            })}
+
+            {/* Edit Mode Markers and Polyline */}
+            {isEditing && selectedPath && (
+              <>
+                <Polyline positions={editPoints} color="#a855f7" weight={10} />
+                {editPoints.map((pt, i) => (
+                  <Marker 
+                    key={`pt-${i}`} 
+                    position={pt} 
+                    draggable={true}
+                    eventHandlers={{
+                      dragend: (e) => {
+                        const newPt = [e.target.getLatLng().lat, e.target.getLatLng().lng] as [number, number];
+                        setEditPoints(prev => prev.map((p, idx) => idx === i ? newPt : p));
+                      }
+                    }}
+                  />
+                ))}
+                {editPoints.map((pt, i) => {
+                  if (i === editPoints.length - 1) return null;
+                  const nextPt = editPoints[i+1];
+                  const midPt: [number, number] = [(pt[0] + nextPt[0]) / 2, (pt[1] + nextPt[1]) / 2];
+                  return (
+                    <Marker 
+                      key={`mid-${i}`} 
+                      position={midPt} 
+                      draggable={true}
+                      opacity={0.5}
+                      eventHandlers={{
+                        dragend: (e) => {
+                          const newPt = [e.target.getLatLng().lat, e.target.getLatLng().lng] as [number, number];
+                          setEditPoints(prev => {
+                            const newArr = [...prev];
+                            newArr.splice(i + 1, 0, newPt);
+                            return newArr;
+                          });
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </>
+            )}
 
             {/* Creation Markers */}
             {startPoint && <Marker position={startPoint} />}
@@ -236,30 +345,49 @@ export default function App() {
                 style={{ position: 'absolute', top: '1rem', right: '1rem', width: '320px', zIndex: 1000, maxHeight: 'calc(100% - 2rem)', overflowY: 'auto' }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{selectedPath.name}</h3>
-                  <button onClick={() => setSelectedPath(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{selectedPath.name}</h3>
+                    {!isEditing && (
+                      <button onClick={handleEditClick} style={{ background: '#3b82f6', border: 'none', color: 'white', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>
+                        Edit Path
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => { setSelectedPath(null); setIsEditing(false); }} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
                     <X size={20} />
                   </button>
                 </div>
 
-                {isLoadingPhotos ? (
-                  <div style={{ padding: '2rem', textAlign: 'center' }}>Loading photos...</div>
-                ) : photos.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
-                    <ImageIcon size={48} style={{ opacity: 0.5, marginBottom: '1rem' }} />
-                    <p>No photos yet</p>
+                {isEditing ? (
+                  <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem' }}>Drag markers to move points. Drag translucent midpoint markers to add a new point.</p>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="btn btn-primary" onClick={handleSaveEdit} style={{ flex: 1 }}>Save</button>
+                      <button className="btn" onClick={() => { setIsEditing(false); handleSelectPath(selectedPath); }} style={{ flex: 1, background: '#475569' }}>Cancel</button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="photo-grid">
-                    {photos.map(id => (
-                      <img 
-                        key={id} 
-                        src={`${API_BASE}/photos/${id}`} 
-                        alt="Stairway" 
-                        className="photo-item animate-fade-in" 
-                      />
-                    ))}
-                  </div>
+                  <>
+                    {isLoadingPhotos ? (
+                      <div style={{ padding: '2rem', textAlign: 'center' }}>Loading photos...</div>
+                    ) : photos.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                        <ImageIcon size={48} style={{ opacity: 0.5, marginBottom: '1rem' }} />
+                        <p>No photos yet</p>
+                      </div>
+                    ) : (
+                      <div className="photo-grid">
+                        {photos.map(id => (
+                          <img 
+                            key={id} 
+                            src={`${API_BASE}/photos/${id}`} 
+                            alt="Stairway" 
+                            className="photo-item animate-fade-in" 
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </motion.div>
             )}

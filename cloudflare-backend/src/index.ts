@@ -29,18 +29,51 @@ export default {
 				try {
 					const data = await request.json() as any;
 					const result = await env.DB.prepare(
-						`INSERT INTO stairpaths (name, startLatitude, startLongitude, endLatitude, endLongitude) 
-						 VALUES (?, ?, ?, ?, ?) RETURNING *`
+						`INSERT INTO stairpaths (name, startLatitude, startLongitude, endLatitude, endLongitude, pathData) 
+						 VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
 					).bind(
 						data.name, 
 						data.startLatitude, 
 						data.startLongitude, 
 						data.endLatitude, 
-						data.endLongitude
+						data.endLongitude,
+						data.pathData ? JSON.stringify(data.pathData) : null
 					).first();
 					
 					return new Response(JSON.stringify(result), {
 						status: 201,
+						headers: { 'Content-Type': 'application/json', ...corsHeaders },
+					});
+				} catch (e: any) {
+					return new Response(JSON.stringify({ error: e.message }), { status: 400, headers: corsHeaders });
+				}
+			}
+		}
+
+		// PUT /stairpaths/:id
+		const stairpathMatch = url.pathname.match(/^\/stairpaths\/(\d+)$/);
+		if (stairpathMatch) {
+			const stairpathId = stairpathMatch[1];
+			if (request.method === 'PUT') {
+				try {
+					const data = await request.json() as any;
+					const result = await env.DB.prepare(
+						`UPDATE stairpaths SET name = ?, startLatitude = ?, startLongitude = ?, endLatitude = ?, endLongitude = ?, pathData = ?
+						 WHERE id = ? RETURNING *`
+					).bind(
+						data.name, 
+						data.startLatitude, 
+						data.startLongitude, 
+						data.endLatitude, 
+						data.endLongitude,
+						data.pathData ? JSON.stringify(data.pathData) : null,
+						stairpathId
+					).first();
+					
+					if (!result) return new Response('Not found', { status: 404, headers: corsHeaders });
+					
+					return new Response(JSON.stringify(result), {
+						status: 200,
 						headers: { 'Content-Type': 'application/json', ...corsHeaders },
 					});
 				} catch (e: any) {
