@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMapEvents } from 'react-leaflet';
 import { MapPin, Plus, X, Image as ImageIcon, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,6 +40,26 @@ export default function App() {
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
   const [editPoints, setEditPoints] = useState<[number, number][]>([]);
+
+  const hasChanges = useMemo(() => {
+    if (!selectedPath || !isEditing) return false;
+    let originalPoints: [number, number][] = [
+      [selectedPath.startLatitude, selectedPath.startLongitude],
+      [selectedPath.endLatitude, selectedPath.endLongitude]
+    ];
+    if (selectedPath.pathData) {
+      try {
+        originalPoints = typeof selectedPath.pathData === 'string' ? JSON.parse(selectedPath.pathData) : selectedPath.pathData;
+      } catch {}
+    }
+    if (originalPoints.length !== editPoints.length) return true;
+    for (let i = 0; i < originalPoints.length; i++) {
+      if (originalPoints[i][0] !== editPoints[i][0] || originalPoints[i][1] !== editPoints[i][1]) {
+        return true;
+      }
+    }
+    return false;
+  }, [editPoints, selectedPath, isEditing]);
 
   useEffect(() => {
     fetch(`${API_BASE}/stairpaths`)
@@ -362,8 +382,21 @@ export default function App() {
                   <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', marginBottom: '1rem' }}>
                     <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem' }}>Drag markers to move points. Drag translucent midpoint markers to add a new point.</p>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button className="btn btn-primary" onClick={handleSaveEdit} style={{ flex: 1 }}>Save</button>
-                      <button className="btn" onClick={() => { setIsEditing(false); handleSelectPath(selectedPath); }} style={{ flex: 1, background: '#475569' }}>Cancel</button>
+                      <button 
+                        className="btn btn-primary" 
+                        disabled={!hasChanges} 
+                        onClick={handleSaveEdit} 
+                        style={{ flex: 1, opacity: hasChanges ? 1 : 0.5, cursor: hasChanges ? 'pointer' : 'not-allowed' }}
+                      >
+                        Save
+                      </button>
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={() => { setIsEditing(false); handleSelectPath(selectedPath); }} 
+                        style={{ flex: 1 }}
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
                 ) : (
