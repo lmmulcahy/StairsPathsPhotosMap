@@ -20,7 +20,7 @@ struct PhotoMapView: View {
                 ForEach(apiService.stairPaths) { stairPath in
                     let stairPathFull = StairPathFull(stairPath: stairPath)
                     Group {
-                        MapPolyline(coordinates: [stairPathFull.startCoordinate, stairPathFull.endCoordinate])
+                        MapPolyline(coordinates: stairPathFull.coordinates)
                             .stroke(.blue, lineWidth: 3)
                         Marker(coordinate: stairPathFull.centerCoordinate) {
                             Label(stairPath.name, systemImage: "star")}

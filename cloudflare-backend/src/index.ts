@@ -29,14 +29,15 @@ export default {
 				try {
 					const data = await request.json() as any;
 					const result = await env.DB.prepare(
-						`INSERT INTO stairpaths (name, startLatitude, startLongitude, endLatitude, endLongitude) 
-						 VALUES (?, ?, ?, ?, ?) RETURNING *`
+						`INSERT INTO stairpaths (name, startLatitude, startLongitude, endLatitude, endLongitude, pathData) 
+						 VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
 					).bind(
 						data.name, 
 						data.startLatitude, 
 						data.startLongitude, 
 						data.endLatitude, 
-						data.endLongitude
+						data.endLongitude,
+						data.pathData || null
 					).first();
 					
 					return new Response(JSON.stringify(result), {
