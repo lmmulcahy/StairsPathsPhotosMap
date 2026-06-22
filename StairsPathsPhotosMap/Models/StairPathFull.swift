@@ -10,11 +10,11 @@ import SwiftUI
 
 class StairPathFull: ObservableObject {
     var stairPath: StairPath
-    @Published var photos: [Data]
+    @Published var photoUrls: [URL]
     
     init (stairPath: StairPath) {
         self.stairPath = stairPath
-        self.photos = []
+        self.photoUrls = []
     }
     
     var startCoordinate: CLLocationCoordinate2D {

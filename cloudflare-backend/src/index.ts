@@ -1,5 +1,6 @@
 export interface Env {
 	DB: D1Database;
+	BUCKET: R2Bucket;
 }
 
 export default {
@@ -35,6 +36,58 @@ export default {
 				} catch (e: any) {
 					return new Response(JSON.stringify({ error: e.message }), { status: 400 });
 				}
+			}
+		}
+
+		// GET /stairpaths/:id/photos
+		const stairpathsPhotosMatch = url.pathname.match(/^\/stairpaths\/(\d+)\/photos$/);
+		if (stairpathsPhotosMatch) {
+			const stairpathId = stairpathsPhotosMatch[1];
+			if (request.method === 'GET') {
+				const { results } = await env.DB.prepare('SELECT * FROM photos WHERE stairpath_id = ?').bind(stairpathId).all();
+				return new Response(JSON.stringify(results), {
+					headers: { 'Content-Type': 'application/json' },
+				});
+			}
+
+			if (request.method === 'POST') {
+				try {
+					const photoId = crypto.randomUUID();
+					const objectKey = `photos/${stairpathId}/${photoId}.jpg`;
+					
+					await env.BUCKET.put(objectKey, request.body);
+					
+					await env.DB.prepare(
+						`INSERT INTO photos (id, stairpath_id, object_key) VALUES (?, ?, ?)`
+					).bind(photoId, stairpathId, objectKey).run();
+					
+					return new Response(JSON.stringify({ id: photoId }), {
+						status: 201,
+						headers: { 'Content-Type': 'application/json' },
+					});
+				} catch (e: any) {
+					return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+				}
+			}
+		}
+
+		// GET /photos/:id
+		const photoMatch = url.pathname.match(/^\/photos\/(.+)$/);
+		if (photoMatch) {
+			const photoId = photoMatch[1];
+			if (request.method === 'GET') {
+				const photoRecord = await env.DB.prepare('SELECT object_key FROM photos WHERE id = ?').bind(photoId).first();
+				if (!photoRecord) return new Response('Not found', { status: 404 });
+				
+				const object = await env.BUCKET.get(photoRecord.object_key as string);
+				if (!object) return new Response('Not found', { status: 404 });
+				
+				const headers = new Headers();
+				object.writeHttpMetadata(headers);
+				headers.set('etag', object.httpEtag);
+				headers.set('Content-Type', 'image/jpeg');
+				
+				return new Response(object.body, { headers });
 			}
 		}
 

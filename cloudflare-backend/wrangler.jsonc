@@ -9,5 +9,11 @@
       "database_name": "stairs_paths_db",
       "database_id": "ddb9ab36-ec99-47cd-bf6c-6779b5b363a7"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "stairs-paths-photos"
+    }
   ]
 }
