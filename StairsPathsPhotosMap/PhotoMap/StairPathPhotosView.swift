@@ -13,14 +13,20 @@ struct StairPathPhotosView: View {
     var stairPath: StairPath
     @ObservedObject var stairPathFull: StairPathFull
 
-    @State private var selectedItems: [PhotosPickerItem] = []
+    @State private var showingNearbyPicker = false
 
     var body: some View {
         VStack {
             Text(stairPath.name)
-            PhotosPicker(selection: $selectedItems, maxSelectionCount: 10, selectionBehavior: .continuousAndOrdered, matching: .images) {
-                Label("Add photos", systemImage: "photo")
+                .font(.headline)
+            
+            Button {
+                showingNearbyPicker = true
+            } label: {
+                Label("Add Nearby Photos", systemImage: "location.magnifyingglass")
             }
+            .buttonStyle(.bordered)
+            .padding(.bottom, 8)
             if stairPathFull.photos.isEmpty {
                 ContentUnavailableView("No Photos", systemImage: "photo.on.rectangle", description: Text("To get started, select some photos above"))
                     .frame(height: 300)
@@ -45,23 +51,17 @@ struct StairPathPhotosView: View {
                 .frame(height: 300)
             }
         }
-        .onChange(of: selectedItems) { oldItems, newItems in
-            let addedItems = Self.newlyAdded(newItems, notIn: oldItems)
-            Task {
-                for item in addedItems {
-                    if let data = try? await item.loadTransferable(type: Data.self),
-                       let downsized = Self.downsized(data) {
-                        stairPathFull.photos.append(downsized)
+        .sheet(isPresented: $showingNearbyPicker) {
+            NearbyPhotosPickerView(coordinate: stairPathFull.centerCoordinate) { photosData in
+                Task {
+                    for data in photosData {
+                        if let downsized = Self.downsized(data) {
+                            stairPathFull.photos.append(downsized)
+                        }
                     }
                 }
             }
         }
-    }
-
-    /// Returns only the items present in `newItems` that weren't already in
-    /// `oldItems`, so a continuous picker selection isn't re-appended each change.
-    static func newlyAdded<T: Equatable>(_ newItems: [T], notIn oldItems: [T]) -> [T] {
-        newItems.filter { !oldItems.contains($0) }
     }
 
     /// Downscales and re-encodes picked photos so we don't persist full-resolution

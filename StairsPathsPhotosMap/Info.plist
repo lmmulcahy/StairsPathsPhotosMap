@@ -2,9 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>MKDirectionsApplicationSupportedModes</key>
-	<array/>
 	<key>GOOGLE_MAPS_API_KEY</key>
 	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<key>MKDirectionsApplicationSupportedModes</key>
+	<array/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>StairsPathsPhotosMap needs access to your photo library to automatically find and suggest photos taken near your selected paths.</string>
 </dict>
 </plist>
