@@ -27,7 +27,7 @@ struct MapEditView: View {
                 ForEach(apiService.stairPaths) { stairPath in
                     let stairPathFull = StairPathFull(stairPath: stairPath)
                     Group {
-                        MapPolyline(coordinates: [stairPathFull.startCoordinate, stairPathFull.endCoordinate])
+                        MapPolyline(coordinates: stairPathFull.coordinates)
                             .stroke(.blue, lineWidth: 3)
                         Annotation(stairPath.name, coordinate: stairPathFull.centerCoordinate, anchor: .bottom) {
                             Circle().fill(.blue).frame(width: 8, height: 8)
