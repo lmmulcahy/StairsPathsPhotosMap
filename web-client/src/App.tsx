@@ -171,8 +171,9 @@ export default function App() {
                   [path.startLatitude, path.startLongitude],
                   [path.endLatitude, path.endLongitude]
                 ]}
-                color={selectedPath?.id === path.id ? '#3b82f6' : '#94a3b8'}
-                weight={selectedPath?.id === path.id ? 6 : 4}
+                color={selectedPath?.id === path.id ? '#a855f7' : '#ef4444'}
+                weight={selectedPath?.id === path.id ? 10 : 6}
+                opacity={selectedPath?.id === path.id ? 1.0 : 0.85}
                 eventHandlers={{
                   click: () => handleSelectPath(path)
                 }}
