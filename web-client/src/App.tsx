@@ -1,18 +1,20 @@
-import { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, useMapEvents } from 'react-leaflet';
-import { MapPin, Plus, X, Image as ImageIcon, Check } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { MapContainer, TileLayer, Polyline, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapPin, Plus, X, Image as ImageIcon, Check, Trash2, Upload, ClipboardList, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 
 // Fix Leaflet default marker icon issue in Vite
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const API_BASE = 'https://stairs-paths-api.luke-mulcahy.workers.dev';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://stairs-paths-api.luke-mulcahy.workers.dev';
+// Admin API is served by Pages Functions on this same (Access-protected) origin.
+const ADMIN_BASE = '/api/admin';
 
 interface StairPath {
   id: number;
@@ -22,6 +24,30 @@ interface StairPath {
   endLatitude: number;
   endLongitude: number;
   pathData?: string;
+}
+
+interface Submission {
+  id: number;
+  kind: 'create' | 'edit';
+  target_id: number | null;
+  payload: string;
+  submitter: string | null;
+  created_at: string;
+}
+
+interface PendingPhoto {
+  id: string;
+  stairpath_id: number;
+  stairpath_name: string | null;
+}
+
+function parsePoints(pathData: string | undefined, fallback: [number, number][]): [number, number][] {
+  if (!pathData) return fallback;
+  try {
+    return typeof pathData === 'string' ? JSON.parse(pathData) : pathData;
+  } catch {
+    return fallback;
+  }
 }
 
 export default function App() {
@@ -40,17 +66,45 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [editPoints, setEditPoints] = useState<[number, number][]>([]);
 
+  // Admin / review state
+  const [view, setView] = useState<'map' | 'queue'>('map');
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadPaths = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/stairpaths`);
+      if (!res.ok) throw new Error();
+      setPaths(await res.json());
+    } catch {
+      setError('Could not load paths.');
+    }
+  }, []);
+
+  const loadQueue = useCallback(async () => {
+    try {
+      const res = await fetch(`${ADMIN_BASE}/queue`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setSubmissions(data.submissions ?? []);
+      setPendingPhotos(data.photos ?? []);
+    } catch {
+      setError('Could not load the review queue.');
+    }
+  }, []);
+
+  const queueCount = submissions.length + pendingPhotos.length;
+
   const hasChanges = useMemo(() => {
     if (!selectedPath || !isEditing) return false;
     let originalPoints: [number, number][] = [
       [selectedPath.startLatitude, selectedPath.startLongitude],
       [selectedPath.endLatitude, selectedPath.endLongitude]
     ];
-    if (selectedPath.pathData) {
-      try {
-        originalPoints = typeof selectedPath.pathData === 'string' ? JSON.parse(selectedPath.pathData) : selectedPath.pathData;
-      } catch {}
-    }
+    originalPoints = parsePoints(selectedPath.pathData, originalPoints);
     if (originalPoints.length !== editPoints.length) return true;
     for (let i = 0; i < originalPoints.length; i++) {
       if (originalPoints[i][0] !== editPoints[i][0] || originalPoints[i][1] !== editPoints[i][1]) {
@@ -61,11 +115,12 @@ export default function App() {
   }, [editPoints, selectedPath, isEditing]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/stairpaths`)
-      .then(res => res.json())
-      .then(data => setPaths(data))
-      .catch(console.error);
-  }, []);
+    // Initial data load on mount. State is set asynchronously after the fetches resolve,
+    // so this is the intended fetch-on-mount pattern rather than derivable state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadPaths();
+    loadQueue();
+  }, [loadPaths, loadQueue]);
 
   const handleSelectPath = async (path: StairPath) => {
     if (isEditing) return;
@@ -78,9 +133,9 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/stairpaths/${path.id}/photos`);
       const data = await res.json();
-      setPhotos(data.map((p: any) => p.id));
-    } catch (e) {
-      console.error(e);
+      setPhotos(data.map((p: { id: string }) => p.id));
+    } catch {
+      setError('Could not load photos.');
     } finally {
       setIsLoadingPhotos(false);
     }
@@ -96,21 +151,10 @@ export default function App() {
   const handleEditClick = () => {
     if (!selectedPath) return;
     setIsEditing(true);
-    if (selectedPath.pathData) {
-      try {
-        setEditPoints(typeof selectedPath.pathData === 'string' ? JSON.parse(selectedPath.pathData) : selectedPath.pathData);
-      } catch {
-        setEditPoints([
-          [selectedPath.startLatitude, selectedPath.startLongitude],
-          [selectedPath.endLatitude, selectedPath.endLongitude]
-        ]);
-      }
-    } else {
-      setEditPoints([
-        [selectedPath.startLatitude, selectedPath.startLongitude],
-        [selectedPath.endLatitude, selectedPath.endLongitude]
-      ]);
-    }
+    setEditPoints(parsePoints(selectedPath.pathData, [
+      [selectedPath.startLatitude, selectedPath.startLongitude],
+      [selectedPath.endLatitude, selectedPath.endLongitude]
+    ]));
   };
 
   const handleSaveEdit = async () => {
@@ -127,17 +171,84 @@ export default function App() {
     };
     
     try {
-      const res = await fetch(`${API_BASE}/stairpaths/${selectedPath.id}`, {
+      const res = await fetch(`${ADMIN_BASE}/stairpaths/${selectedPath.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) throw new Error();
       const updated = await res.json();
       setPaths(prev => prev.map(p => p.id === updated.id ? updated : p));
       setSelectedPath(updated);
       setIsEditing(false);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setError('Could not save the edit.');
+    }
+  };
+
+  const handleDeletePath = async () => {
+    if (!selectedPath) return;
+    if (!confirm(`Delete "${selectedPath.name}" and its photos? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${ADMIN_BASE}/stairpaths/${selectedPath.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setPaths(prev => prev.filter(p => p.id !== selectedPath.id));
+      setSelectedPath(null);
+    } catch {
+      setError('Could not delete the path.');
+    }
+  };
+
+  const handleUploadPhotos = async (files: FileList | null) => {
+    if (!selectedPath || !files || files.length === 0) return;
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const res = await fetch(`${ADMIN_BASE}/stairpaths/${selectedPath.id}/photos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'image/jpeg' },
+          body: file
+        });
+        if (!res.ok) throw new Error();
+        const { id } = await res.json();
+        setPhotos(prev => [...prev, id]);
+      }
+    } catch {
+      setError('Could not upload one or more photos.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const reviewSubmission = async (id: number, action: 'approve' | 'reject') => {
+    try {
+      const res = await fetch(`${ADMIN_BASE}/submissions/${id}/${action}`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      setSubmissions(prev => prev.filter(s => s.id !== id));
+      if (action === 'approve') loadPaths();
+    } catch {
+      setError(`Could not ${action} the submission.`);
+    }
+  };
+
+  const reviewPhoto = async (id: string, action: 'approve' | 'reject') => {
+    try {
+      const res = await fetch(`${ADMIN_BASE}/photos/${id}/${action}`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      setPendingPhotos(prev => prev.filter(p => p.id !== id));
+    } catch {
+      setError(`Could not ${action} the photo.`);
+    }
+  };
+
+  const handleDeletePhoto = async (id: string) => {
+    try {
+      const res = await fetch(`${ADMIN_BASE}/photos/${id}/reject`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      setPhotos(prev => prev.filter(p => p !== id));
+    } catch {
+      setError('Could not delete the photo.');
     }
   };
 
@@ -157,38 +268,71 @@ export default function App() {
     };
 
     try {
-      const res = await fetch(`${API_BASE}/stairpaths`, {
+      const res = await fetch(`${ADMIN_BASE}/stairpaths`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) throw new Error();
       const newPath = await res.json();
       setPaths(prev => [...prev, newPath]);
       handleCreateCancel();
       handleSelectPath(newPath);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setError('Could not create the path.');
     }
   };
 
-  // Map Click Handler Component
-  function MapClickHandler() {
-    useMapEvents({
-      click(e) {
-        if (!isCreating || createStep !== 0) return;
-        setCreatePoints(prev => [...prev, [e.latlng.lat, e.latlng.lng]]);
-      }
-    });
-    return null;
-  }
-
   return (
     <div className="app-container">
-      <header className="header">
-        <MapPin size={28} color="#3b82f6" />
-        <h1>Stairs & Paths</h1>
+      <header className="header" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <MapPin size={28} color="#e2552b" />
+        <h1 style={{ marginRight: 'auto' }}>Stairs &amp; Paths</h1>
+        <button
+          className={`btn ${view === 'map' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setView('map')}
+        >
+          <MapPin size={16} /> Map
+        </button>
+        <button
+          className={`btn ${view === 'queue' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => { setView('queue'); loadQueue(); }}
+        >
+          <ClipboardList size={16} /> Review Queue
+          {queueCount > 0 && (
+            <span style={{ marginLeft: '0.4rem', background: '#e2552b', color: 'white', borderRadius: '999px', padding: '0.05rem 0.5rem', fontSize: '0.75rem', fontWeight: 700 }}>
+              {queueCount}
+            </span>
+          )}
+        </button>
       </header>
 
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            onClick={() => setError(null)}
+            style={{ background: '#7f1d1d', color: 'white', padding: '0.6rem 1rem', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
+          >
+            <span>{error}</span>
+            <span style={{ opacity: 0.8 }}>Dismiss ✕</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {view === 'queue' ? (
+        <ReviewQueue
+          submissions={submissions}
+          pendingPhotos={pendingPhotos}
+          paths={paths}
+          apiBase={API_BASE}
+          onRefresh={loadQueue}
+          onReviewSubmission={reviewSubmission}
+          onReviewPhoto={reviewPhoto}
+        />
+      ) : (
       <main className="main-content">
         <aside className="sidebar">
           <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--bg-surface-hover)' }}>
@@ -231,25 +375,23 @@ export default function App() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               className="map-tiles"
             />
-            <MapClickHandler />
+            <MapClickHandler
+              enabled={isCreating && createStep === 0}
+              onAdd={pt => setCreatePoints(prev => [...prev, pt])}
+            />
 
             {/* Existing Paths */}
             {paths.map(path => {
               if (selectedPath?.id === path.id && isEditing) return null;
-              let positions: [number, number][] = [
+              const positions = parsePoints(path.pathData, [
                 [path.startLatitude, path.startLongitude],
                 [path.endLatitude, path.endLongitude]
-              ];
-              if (path.pathData) {
-                 try {
-                    positions = typeof path.pathData === 'string' ? JSON.parse(path.pathData) : path.pathData;
-                 } catch {}
-              }
+              ]);
               return (
-                <Polyline 
+                <Polyline
                   key={path.id}
                   positions={positions}
-                  color={selectedPath?.id === path.id ? '#a855f7' : '#ef4444'}
+                  color={selectedPath?.id === path.id ? '#a855f7' : '#e2552b'}
                   weight={selectedPath?.id === path.id ? 10 : 6}
                   opacity={selectedPath?.id === path.id ? 1.0 : 0.85}
                   eventHandlers={{
@@ -426,6 +568,32 @@ export default function App() {
                   </div>
                 ) : (
                   <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      style={{ display: 'none' }}
+                      onChange={e => handleUploadPhotos(e.target.files)}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                      <button
+                        className="btn btn-primary"
+                        style={{ flex: 1, justifyContent: 'center', opacity: isUploading ? 0.6 : 1 }}
+                        disabled={isUploading}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload size={16} /> {isUploading ? 'Uploading…' : 'Add Photos'}
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        title="Delete path"
+                        onClick={handleDeletePath}
+                        style={{ color: '#fca5a5' }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                     {isLoadingPhotos ? (
                       <div style={{ padding: '2rem', textAlign: 'center' }}>Loading photos...</div>
                     ) : photos.length === 0 ? (
@@ -436,12 +604,20 @@ export default function App() {
                     ) : (
                       <div className="photo-grid">
                         {photos.map(id => (
-                          <img 
-                            key={id} 
-                            src={`${API_BASE}/photos/${id}`} 
-                            alt="Stairway" 
-                            className="photo-item animate-fade-in" 
-                          />
+                          <div key={id} style={{ position: 'relative' }} className="animate-fade-in">
+                            <img
+                              src={`${API_BASE}/photos/${id}`}
+                              alt="Stairway"
+                              className="photo-item"
+                            />
+                            <button
+                              title="Delete photo"
+                              onClick={() => handleDeletePhoto(id)}
+                              style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '6px', padding: '3px', cursor: 'pointer', display: 'flex' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -452,6 +628,176 @@ export default function App() {
           </AnimatePresence>
         </section>
       </main>
+      )}
+    </div>
+  );
+}
+
+function MapClickHandler({ enabled, onAdd }: { enabled: boolean; onAdd: (pt: [number, number]) => void }) {
+  useMapEvents({
+    click(e) {
+      if (!enabled) return;
+      onAdd([e.latlng.lat, e.latlng.lng]);
+    }
+  });
+  return null;
+}
+
+function FitBounds({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length > 0) {
+      map.fitBounds(L.latLngBounds(points as L.LatLngExpression[]).pad(0.3));
+    }
+  }, [map, points]);
+  return null;
+}
+
+function SubmissionCard({
+  submission,
+  existing,
+  onReview,
+}: {
+  submission: Submission;
+  existing?: StairPath;
+  onReview: (id: number, action: 'approve' | 'reject') => void;
+}) {
+  const payload = useMemo(() => {
+    try {
+      return JSON.parse(submission.payload) as {
+        name: string;
+        startLatitude: number;
+        startLongitude: number;
+        endLatitude: number;
+        endLongitude: number;
+        pathData?: [number, number][];
+      };
+    } catch {
+      return null;
+    }
+  }, [submission.payload]);
+
+  if (!payload) return null;
+
+  const newPoints: [number, number][] = payload.pathData ?? [
+    [payload.startLatitude, payload.startLongitude],
+    [payload.endLatitude, payload.endLongitude],
+  ];
+  const oldPoints = existing
+    ? parsePoints(existing.pathData, [
+        [existing.startLatitude, existing.startLongitude],
+        [existing.endLatitude, existing.endLongitude],
+      ])
+    : [];
+
+  return (
+    <div className="glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <h3 style={{ margin: 0 }}>{payload.name}</h3>
+        <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: submission.kind === 'create' ? '#34d399' : '#fbbf24' }}>
+          {submission.kind === 'create' ? 'New path' : `Edit · #${submission.target_id}`}
+        </span>
+      </div>
+      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+        {newPoints.length} points{submission.submitter ? ` · by ${submission.submitter}` : ''} · {new Date(submission.created_at + 'Z').toLocaleString()}
+      </div>
+      <MapContainer center={newPoints[0]} zoom={15} style={{ height: '160px', width: '100%', borderRadius: '8px' }} scrollWheelZoom={false}>
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {oldPoints.length > 0 && <Polyline positions={oldPoints} color="#64748b" weight={4} dashArray="4,6" />}
+        <Polyline positions={newPoints} color="#e2552b" weight={6} />
+        <FitBounds points={[...newPoints, ...oldPoints]} />
+      </MapContainer>
+      {existing && (
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+          <span style={{ color: '#94a3b8' }}>— —</span> current · <span style={{ color: '#e2552b' }}>———</span> proposed
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onReview(submission.id, 'approve')}>
+          <Check size={16} /> Approve
+        </button>
+        <button className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center', color: '#fca5a5' }} onClick={() => onReview(submission.id, 'reject')}>
+          <X size={16} /> Reject
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReviewQueue({
+  submissions,
+  pendingPhotos,
+  paths,
+  apiBase,
+  onRefresh,
+  onReviewSubmission,
+  onReviewPhoto,
+}: {
+  submissions: Submission[];
+  pendingPhotos: PendingPhoto[];
+  paths: StairPath[];
+  apiBase: string;
+  onRefresh: () => void;
+  onReviewSubmission: (id: number, action: 'approve' | 'reject') => void;
+  onReviewPhoto: (id: string, action: 'approve' | 'reject') => void;
+}) {
+  const isEmpty = submissions.length === 0 && pendingPhotos.length === 0;
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <h2 style={{ margin: 0 }}>Review Queue</h2>
+        <button className="btn btn-secondary" onClick={onRefresh}><RefreshCw size={16} /> Refresh</button>
+      </div>
+
+      {isEmpty && (
+        <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--text-muted)' }}>
+          <Check size={48} style={{ opacity: 0.5, marginBottom: '1rem' }} />
+          <p>Nothing to review. You're all caught up.</p>
+        </div>
+      )}
+
+      {submissions.length > 0 && (
+        <section style={{ marginBottom: '2rem' }}>
+          <h3 style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Path submissions ({submissions.length})
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+            {submissions.map(s => (
+              <SubmissionCard
+                key={s.id}
+                submission={s}
+                existing={s.target_id ? paths.find(p => p.id === s.target_id) : undefined}
+                onReview={onReviewSubmission}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pendingPhotos.length > 0 && (
+        <section>
+          <h3 style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Photo submissions ({pendingPhotos.length})
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+            {pendingPhotos.map(photo => (
+              <div key={photo.id} className="glass-panel" style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <img src={`${apiBase}/photos/${photo.id}`} alt="Pending submission" style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '8px' }} />
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{photo.stairpath_name ?? `Path #${photo.stairpath_id}`}</div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onReviewPhoto(photo.id, 'approve')}>
+                    <Check size={16} /> Approve
+                  </button>
+                  <button className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center', color: '#fca5a5' }} onClick={() => onReviewPhoto(photo.id, 'reject')}>
+                    <X size={16} /> Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
