@@ -12,8 +12,7 @@ import SwiftUI
 struct PhotoMapView: View {
     @State var selectedPathId: Int?
     @EnvironmentObject var apiService: APIService
-    
-    private let locationManager = CLLocationManager()
+
     var body: some View {
         MapReader { proxy in
             Map(selection: $selectedPathId) {
@@ -21,23 +20,33 @@ struct PhotoMapView: View {
                     let stairPathFull = StairPathFull(stairPath: stairPath)
                     Group {
                         MapPolyline(coordinates: stairPathFull.coordinates)
-                            .stroke(.blue, lineWidth: 3)
+                            .stroke(Color.accentColor, lineWidth: 4)
                         Marker(coordinate: stairPathFull.centerCoordinate) {
-                            Label(stairPath.name, systemImage: "star")}
-                    }.tag(stairPath.id)
+                            Label(stairPath.name, systemImage: "figure.stairs")
+                        }
+                    }
+                    .tag(stairPath.id)
                 }
             }
-            .onAppear {
+            .overlay {
                 if apiService.stairPaths.isEmpty {
-                    Task {
-                        await apiService.fetchStairPaths()
+                    if apiService.isLoading {
+                        ProgressView("Loading paths…")
+                            .padding(24)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        ContentUnavailableView(
+                            "No Paths Yet",
+                            systemImage: "figure.stairs",
+                            description: Text("Stairways and paths will appear here once they're added.")
+                        )
                     }
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                HStack {
-                    Text("Search...")
-                }.padding()
+            .task {
+                if apiService.stairPaths.isEmpty {
+                    await apiService.fetchStairPaths()
+                }
             }
             .sheet(isPresented: Binding(
                 get: { selectedPathId != nil },
@@ -45,7 +54,7 @@ struct PhotoMapView: View {
             )) {
                 if let id = selectedPathId, let path = apiService.stairPaths.first(where: { $0.id == id }) {
                     StairPathPhotosView(stairPathId: id, stairPath: path, stairPathFull: StairPathFull(stairPath: path))
-                        .presentationDetents([.fraction(0.5)])
+                        .presentationDetents([.fraction(0.5), .large])
                 }
             }
         }

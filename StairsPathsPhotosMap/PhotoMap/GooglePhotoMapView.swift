@@ -33,15 +33,15 @@ struct GooglePhotoMapView: UIViewRepresentable {
                 path.add(coord)
             }
             let polyline = GMSPolyline(path: path)
-            polyline.strokeColor = .blue
-            polyline.strokeWidth = 3.0
+            polyline.strokeColor = UIColor(Color.accentColor)
+            polyline.strokeWidth = 4.0
             polyline.map = mapView
 
             // Add marker
             let marker = GMSMarker()
             marker.position = CLLocationCoordinate2D(latitude: stairPathFull.centerCoordinate.latitude, longitude: stairPathFull.centerCoordinate.longitude)
             marker.title = stairPath.name
-            marker.icon = GMSMarker.markerImage(with: .red)
+            marker.icon = GMSMarker.markerImage(with: UIColor(Color.accentColor))
             marker.map = mapView
             marker.userData = stairPath // Attach the StairPath object for selection
         }

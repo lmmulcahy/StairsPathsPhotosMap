@@ -37,15 +37,15 @@ struct GoogleMapEditView: UIViewRepresentable {
                 path.add(coord)
             }
             let polyline = GMSPolyline(path: path)
-            polyline.strokeColor = .blue
-            polyline.strokeWidth = 3.0
+            polyline.strokeColor = UIColor(Color.accentColor)
+            polyline.strokeWidth = 4.0
             polyline.map = mapView
 
             // Add marker
             let marker = GMSMarker()
             marker.position = CLLocationCoordinate2D(latitude: stairPathFull.centerCoordinate.latitude, longitude: stairPathFull.centerCoordinate.longitude)
             marker.title = stairPath.name
-            marker.icon = GMSMarker.markerImage(with: .blue)
+            marker.icon = GMSMarker.markerImage(with: UIColor(Color.accentColor))
             marker.map = mapView
             marker.userData = stairPath // Attach the StairPath object for selection
         }
@@ -61,7 +61,7 @@ struct GoogleMapEditView: UIViewRepresentable {
                 }
                 let polyline = GMSPolyline(path: path)
                 polyline.strokeColor = .red
-                polyline.strokeWidth = 3.0
+                polyline.strokeWidth = 4.0
                 polyline.map = mapView
             }
 
@@ -127,6 +127,7 @@ struct GoogleMapEditViewContainer: View {
                 }
                 try? modelContext.save()
                 refreshTrigger += 1
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
             }
         )
         .overlay(alignment: .bottom) {
@@ -158,11 +159,19 @@ struct GoogleMapEditViewContainer: View {
             }
         }
         .overlay(alignment: .top) {
-            Text(stairPathInProgress.isEmpty ? "Tap to add start point" : "Keep tapping to add points")
-                .font(.headline)
-                .padding()
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                .padding(.top)
+            let count = stairPathInProgress.first?.points.count ?? 0
+            VStack(spacing: 4) {
+                Text(count == 0 ? "Tap to set the start point" : "Keep tapping to add points")
+                    .font(.headline)
+                if count > 0 {
+                    Text("\(count) \(count == 1 ? "point" : "points") added")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding()
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .padding(.top)
         }
         .onAppear {
             if apiService.stairPaths.isEmpty {

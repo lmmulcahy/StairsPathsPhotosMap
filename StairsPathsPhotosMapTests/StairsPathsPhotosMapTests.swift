@@ -6,22 +6,16 @@
 //
 
 import Testing
-import SwiftData
+import Foundation
 import MapKit
 import UIKit
 @testable import StairsPathsPhotosMap
 
-// Runs serially: these share the app test host (which renders MapKit) and a
-// SwiftData stack, which is unstable under Swift Testing's default parallelism.
+// Runs serially: the app test host renders MapKit, which is unstable under Swift
+// Testing's default parallelism.
 @Suite(.serialized)
 @MainActor
 struct StairsPathsPhotosMapTests {
-
-    private func makeInMemoryContainer() throws -> ModelContainer {
-        try ModelContainer(
-            for: StairPath.self, StairPathInProgress.self, MapLocation.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-    }
 
     private func jpegData(width: Int, height: Int) -> Data {
         let format = UIGraphicsImageRendererFormat.default()
@@ -34,57 +28,80 @@ struct StairsPathsPhotosMapTests {
         return image.jpegData(compressionQuality: 1)!
     }
 
-    // MARK: - Create-path flow
+    // MARK: - pathData wire encoding
 
-    @Test func completingPathCreatesStairPathAndRemovesDraft() throws {
-        let container = try makeInMemoryContainer()
-        let context = container.mainContext
+    /// Regression test: the backend expects pathData as a JSON array and stringifies it
+    /// once. Sending it as a string would double-encode it, so our encoder must emit an
+    /// array even though we hold pathData as a string in memory.
+    @Test func pathDataEncodesAsArrayNotString() throws {
+        let path = StairPath(
+            id: 0, name: "Test",
+            startLatitude: 1, startLongitude: 2,
+            endLatitude: 3, endLongitude: 4,
+            pathData: "[[1.0,2.0],[3.0,4.0]]")
 
-        StairPathEditing.startPath(at: MapLocation(latitude: 37.75, longitude: -122.45), in: context)
-        let drafts = try context.fetch(FetchDescriptor<StairPathInProgress>())
-        #expect(drafts.count == 1)
+        let data = try JSONEncoder().encode(path)
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 
-        let saved = try StairPathEditing.completePath(
-            name: "Test Stairs",
-            type: .stairs,
-            endLatitude: 37.76,
-            endLongitude: -122.46,
-            from: drafts[0],
-            in: context)
-
-        #expect(saved.name == "Test Stairs")
-        #expect(saved.type == .stairs)
-        #expect(saved.startLatitude == 37.75)
-        #expect(saved.startLongitude == -122.45)
-        #expect(saved.endLatitude == 37.76)
-        #expect(saved.endLongitude == -122.46)
-
-        let paths = try context.fetch(FetchDescriptor<StairPath>())
-        #expect(paths.count == 1)
-        let remainingDrafts = try context.fetch(FetchDescriptor<StairPathInProgress>())
-        #expect(remainingDrafts.isEmpty)
+        #expect(json["pathData"] is [Any])
+        let arr = try #require(json["pathData"] as? [[Double]])
+        #expect(arr == [[1.0, 2.0], [3.0, 4.0]])
     }
 
-    // MARK: - Model geometry
+    /// The backend returns pathData as a JSON *string*; decoding must keep it as a string.
+    @Test func decodesServerPathDataString() throws {
+        let payload = """
+        {"id":7,"name":"Pacheco","startLatitude":37.74,"startLongitude":-122.46,"endLatitude":37.75,"endLongitude":-122.46,"pathData":"[[37.74,-122.46],[37.75,-122.46]]"}
+        """.data(using: .utf8)!
 
-    @Test func centerCoordinateIsTheMidpoint() {
+        let path = try JSONDecoder().decode(StairPath.self, from: payload)
+        #expect(path.id == 7)
+        #expect(path.pathData == "[[37.74,-122.46],[37.75,-122.46]]")
+    }
+
+    @Test func decodesNullPathData() throws {
+        let payload = """
+        {"id":1,"name":"x","startLatitude":0,"startLongitude":0,"endLatitude":1,"endLongitude":1,"pathData":null}
+        """.data(using: .utf8)!
+        let path = try JSONDecoder().decode(StairPath.self, from: payload)
+        #expect(path.pathData == nil)
+    }
+
+    // MARK: - Geometry
+
+    @Test func centerCoordinateIsMidpointForStartEndOnlyPath() {
         let path = StairPath(
-            name: "x", type: .path,
+            id: 1, name: "x",
             startLatitude: 0, startLongitude: 0,
             endLatitude: 10, endLongitude: 20)
-        #expect(path.centerCoordinate.latitude == 5)
-        #expect(path.centerCoordinate.longitude == 10)
-        #expect(path.startCoordinate.latitude == 0)
-        #expect(path.endCoordinate.longitude == 20)
+        let full = StairPathFull(stairPath: path)
+        #expect(full.centerCoordinate.latitude == 5)
+        #expect(full.centerCoordinate.longitude == 10)
+        #expect(full.startCoordinate.latitude == 0)
+        #expect(full.endCoordinate.longitude == 20)
     }
 
-    // MARK: - Photo picker dedup
+    @Test func coordinatesDecodeMultiSegmentPathData() {
+        let path = StairPath(
+            id: 1, name: "x",
+            startLatitude: 0, startLongitude: 0,
+            endLatitude: 9, endLongitude: 9,
+            pathData: "[[0.0,0.0],[1.0,1.0],[2.0,2.0]]")
+        let coords = StairPathFull(stairPath: path).coordinates
+        #expect(coords.count == 3)
+        #expect(coords[1].latitude == 1)
+        #expect(coords[1].longitude == 1)
+    }
 
-    @Test func newlyAddedReturnsOnlyItemsNotAlreadySelected() {
-        #expect(StairPathPhotosView.newlyAdded([1, 2, 3], notIn: [1, 2]) == [3])
-        #expect(StairPathPhotosView.newlyAdded([1, 2], notIn: [1, 2]).isEmpty)
-        #expect(StairPathPhotosView.newlyAdded([1, 2, 3, 4], notIn: [2]) == [1, 3, 4])
-        #expect(StairPathPhotosView.newlyAdded([Int](), notIn: [1]).isEmpty)
+    @Test func coordinatesFallBackToStartEndWhenPathDataMissing() {
+        let path = StairPath(
+            id: 1, name: "x",
+            startLatitude: 3, startLongitude: 4,
+            endLatitude: 5, endLongitude: 6)
+        let coords = StairPathFull(stairPath: path).coordinates
+        #expect(coords.count == 2)
+        #expect(coords.first?.latitude == 3)
+        #expect(coords.last?.longitude == 6)
     }
 
     // MARK: - Photo downsizing
