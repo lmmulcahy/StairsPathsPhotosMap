@@ -55,6 +55,18 @@ struct StartTab: View {
         } message: { message in
             Text(message)
         }
+        .alert(
+            "Submitted for review",
+            isPresented: Binding(
+                get: { apiService.infoMessage != nil },
+                set: { if !$0 { apiService.infoMessage = nil } }
+            ),
+            presenting: apiService.infoMessage
+        ) { _ in
+            Button("OK", role: .cancel) { apiService.infoMessage = nil }
+        } message: { message in
+            Text(message)
+        }
     }
 
     private var activeMapType: MapType {

@@ -46,13 +46,21 @@ struct StairPathPhotosView: View {
             NearbyPhotosPickerView(coordinate: stairPathFull.centerCoordinate) { photosData in
                 isUploading = true
                 Task {
+                    var submitted = 0
                     for data in photosData {
                         if let downsized = Self.downsized(data),
-                           let newUrl = await apiService.uploadPhoto(data: downsized, for: stairPathId) {
-                            stairPathFull.photoUrls.append(newUrl)
+                           await apiService.uploadPhoto(data: downsized, for: stairPathId) {
+                            submitted += 1
                         }
                     }
                     isUploading = false
+                    // Uploaded photos are pending review, so they aren't shown in the
+                    // gallery yet; confirm the submission instead.
+                    if submitted > 0 {
+                        apiService.infoMessage = submitted == 1
+                            ? "Thanks! Your photo was submitted for review."
+                            : "Thanks! Your \(submitted) photos were submitted for review."
+                    }
                 }
             }
         }
