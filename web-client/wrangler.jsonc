@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stairs-paths-web",
+  "compatibility_date": "2024-04-05",
+  "pages_build_output_dir": "dist",
+  // Admin Pages Functions bind the same D1 + R2 as the public Worker.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "stairs_paths_db",
+      "database_id": "ddb9ab36-ec99-47cd-bf6c-6779b5b363a7"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "stairs-paths-photos"
+    }
+  ]
+  // Access verification vars (ACCESS_TEAM_DOMAIN, ACCESS_AUD) are set as Pages env vars
+  // in the dashboard / via `wrangler pages secret`, not committed here.
+}
