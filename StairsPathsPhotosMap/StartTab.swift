@@ -14,34 +14,46 @@ enum MapType: String {
 
 struct StartTab: View {
     @AppStorage("preferredMapType") private var preferredMapType: MapType = .apple
+    @EnvironmentObject var apiService: APIService
 
     var body: some View {
         TabView {
             Group {
                 photoMap
                     .tabItem {
-                        Label("StairsPathsMap", systemImage: "map")
+                        Label("Map", systemImage: "map")
                     }
 
                 editMap
                     .tabItem {
-                        Label("Edit Map", systemImage: "map")
+                        Label("Contribute", systemImage: "plus.circle")
                     }
 
                 StairPathsListView()
                     .tabItem {
-                        Label("List", systemImage: "globe")
+                        Label("Paths", systemImage: "list.bullet")
                     }
 
                 NavigationStack {
                     SettingsView()
                 }
                 .tabItem {
-                    Label("Settings", systemImage: "gear")
+                    Label("Settings", systemImage: "gearshape")
                 }
             }
             .toolbarBackground(.visible, for: .tabBar)
-            .toolbarColorScheme(.dark, for: .tabBar)
+        }
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(
+                get: { apiService.errorMessage != nil },
+                set: { if !$0 { apiService.errorMessage = nil } }
+            ),
+            presenting: apiService.errorMessage
+        ) { _ in
+            Button("OK", role: .cancel) { apiService.errorMessage = nil }
+        } message: { message in
+            Text(message)
         }
     }
 
@@ -71,6 +83,6 @@ struct StartTab: View {
     }
 }
 
- #Preview {
-     StartTab()
- }
+#Preview {
+    StartTab().environmentObject(APIService())
+}

@@ -13,7 +13,7 @@ struct NearbyPhotosPickerView: View {
     @State private var isSaving = false
     
     let columns = [
-        GridItem(.adaptive(minimum: 100, maximum: 150), spacing: 2)
+        GridItem(.adaptive(minimum: 100, maximum: 150), spacing: 6)
     ]
     
     var body: some View {
@@ -29,37 +29,39 @@ struct NearbyPhotosPickerView: View {
                     ContentUnavailableView("No Nearby Photos", systemImage: "photo.on.rectangle", description: Text("We couldn't find any photos taken near this location."))
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: columns, spacing: 2) {
+                        LazyVGrid(columns: columns, spacing: 6) {
                             ForEach(manager.nearbyAssets, id: \.localIdentifier) { asset in
+                                let isSelected = selectedAssets.contains(asset)
                                 AssetThumbnailView(asset: asset)
                                     .aspectRatio(1, contentMode: .fill)
                                     .clipped()
-                                    .overlay(
-                                        ZStack {
-                                            if selectedAssets.contains(asset) {
-                                                Color.black.opacity(0.3)
-                                                Image(systemName: "checkmark.circle.fill")
-                                                    .font(.title)
-                                                    .foregroundColor(.blue)
-                                                    .padding(4)
-                                            } else {
-                                                Image(systemName: "circle")
-                                                    .font(.title)
-                                                    .foregroundColor(.white.opacity(0.8))
-                                                    .padding(4)
-                                            }
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    .overlay {
+                                        if isSelected {
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.accentColor, lineWidth: 3)
                                         }
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                                    )
+                                    }
+                                    .overlay(alignment: .bottomTrailing) {
+                                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                            .font(.title2)
+                                            .symbolRenderingMode(.palette)
+                                            .foregroundStyle(.white, isSelected ? Color.accentColor : Color.black.opacity(0.4))
+                                            .shadow(radius: 2)
+                                            .padding(6)
+                                    }
                                     .onTapGesture {
-                                        if selectedAssets.contains(asset) {
+                                        if isSelected {
                                             selectedAssets.remove(asset)
                                         } else {
                                             selectedAssets.insert(asset)
                                         }
                                     }
+                                    .accessibilityLabel(isSelected ? "Selected photo" : "Photo")
+                                    .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
                             }
                         }
+                        .padding(6)
                     }
                 }
             }

@@ -39,37 +39,14 @@ class StairPathFull: ObservableObject {
     
     var centerCoordinate: CLLocationCoordinate2D {
         let coords = coordinates
-        if coords.count >= 2 {
-            let midIndex = coords.count / 2
-            return coords[midIndex]
+        // For a multi-segment path, anchor the marker on the middle vertex. For a simple
+        // two-point path, use the true geometric midpoint so the marker doesn't land on
+        // the endpoint.
+        if coords.count >= 3 {
+            return coords[coords.count / 2]
         }
-        return .init(latitude: (stairPath.startLatitude + stairPath.endLatitude) / 2, longitude: (stairPath.startLongitude + stairPath.endLongitude) / 2)
+        let first = coords.first ?? startCoordinate
+        let last = coords.last ?? endCoordinate
+        return .init(latitude: (first.latitude + last.latitude) / 2, longitude: (first.longitude + last.longitude) / 2)
     }
 }
-
-/*
-#Preview {
-    StairPath(name: "Pacheco Stairs", type: .stairs, startLatitude: 0, startLongitude: 0, endLatitude: 0, endLongitude: 0)
-}
- */
-
-/*
-extension StairPath {
-    @MainActor static var preview: ModelContainer {
-        let container = try! ModelContainer(
-            for: StairPath.self, StairPathInProgress.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true), ModelConfiguration(isStoredInMemoryOnly: true))
-        
-        let pachecoStairs: StairPath = .init(name: "Pacheco Stairs", type: .stairs, startLatitude: 37.746190, startLongitude: -122.462162, endLatitude: 37.746720, endLongitude: -122.462828)
-        container.mainContext.insert(pachecoStairs)
-        let filbertSteps: StairPath = .init(name: "Filbert St Steps", type: .stairs, startLatitude: 37.801889, startLongitude: -122.405264, endLatitude: 37.802134, endLongitude: -122.403372)
-        container.mainContext.insert(filbertSteps)
-        let moreSteps: StairPath = .init(name: "More St Steps", type: .stairs, startLatitude: 37.785889, startLongitude: -122.425264, endLatitude: 37.79134, endLongitude: -122.403372)
-        container.mainContext.insert(moreSteps)
-        /*
-        let inProgress: StairPathInProgress = .init(name: "blahhh!!!!", start: MapLocation(latitude: 37.785, longitude: -122.427), end: MapLocation(latitude: 37.800, longitude: -122.427))
-        container.mainContext.insert(inProgress)
-         */
-        return container
-    }
-}
- */

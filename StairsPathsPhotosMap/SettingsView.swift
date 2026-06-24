@@ -17,14 +17,33 @@ struct SettingsView: View {
         return false
     }
 
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        return "\(version) (\(build))"
+    }
+
     var body: some View {
         Form {
-            Section(header: Text("Map Preference"), footer: Text(hasGoogleMapsAPIKey ? "" : "Google Maps is currently unavailable because the API key is missing. The app will gracefully fall back to Apple Maps.")) {
+            Section {
                 Picker("Preferred Map", selection: $preferredMapType) {
                     Text("Apple Maps").tag(MapType.apple)
                     Text("Google Maps").tag(MapType.google)
                 }
                 .pickerStyle(.segmented)
+            } header: {
+                Text("Map Preference")
+            } footer: {
+                if !hasGoogleMapsAPIKey {
+                    Text("Google Maps is currently unavailable because no API key is configured. The app falls back to Apple Maps.")
+                }
+            }
+
+            Section("About") {
+                LabeledContent("Version", value: appVersion)
+                Text("Discover and share photos of San Francisco's stairways and walking paths.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Settings")

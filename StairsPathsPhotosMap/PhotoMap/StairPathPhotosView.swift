@@ -16,51 +16,31 @@ struct StairPathPhotosView: View {
 
     @State private var showingNearbyPicker = false
     @State private var isUploading = false
+    @State private var isLoadingPhotos = true
+
+    private let galleryHeight: CGFloat = 260
+    private let photoCornerRadius: CGFloat = 16
 
     var body: some View {
-        VStack {
+        VStack(spacing: 12) {
             Text(stairPath.name)
                 .font(.headline)
-            
+                .multilineTextAlignment(.center)
+
             Button {
                 showingNearbyPicker = true
             } label: {
                 Label("Add Nearby Photos", systemImage: "location.magnifyingglass")
             }
             .buttonStyle(.bordered)
-            .padding(.bottom, 8)
-            
-            if isUploading {
-                ProgressView("Uploading...")
-                    .frame(height: 300)
-            } else if stairPathFull.photoUrls.isEmpty {
-                ContentUnavailableView("No Photos", systemImage: "photo.on.rectangle", description: Text("To get started, select some photos above"))
-                    .frame(height: 300)
-            } else {
-                ScrollView(.horizontal) {
-                    LazyHStack {
-                        ForEach(stairPathFull.photoUrls, id: \.self) { url in
-                            AsyncImage(url: url) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(height: 250)
-                                    .clipShape(RoundedRectangle(cornerRadius: 25.0))
-                            } placeholder: {
-                                ProgressView()
-                                    .frame(width: 250, height: 250)
-                            }
-                            .padding(.horizontal, 20)
-                            .containerRelativeFrame(.horizontal)
-                        }
-                        
-                    }
-                }
-                .frame(height: 300)
-            }
+
+            photoContent
         }
+        .padding(.top, 8)
         .task {
+            isLoadingPhotos = true
             stairPathFull.photoUrls = await apiService.fetchPhotos(for: stairPathId)
+            isLoadingPhotos = false
         }
         .sheet(isPresented: $showingNearbyPicker) {
             NearbyPhotosPickerView(coordinate: stairPathFull.centerCoordinate) { photosData in
@@ -76,6 +56,59 @@ struct StairPathPhotosView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder private var photoContent: some View {
+        if isUploading {
+            ProgressView("Uploading…")
+                .frame(height: galleryHeight)
+        } else if isLoadingPhotos {
+            ProgressView()
+                .frame(height: galleryHeight)
+        } else if stairPathFull.photoUrls.isEmpty {
+            ContentUnavailableView(
+                "No Photos",
+                systemImage: "photo.on.rectangle",
+                description: Text("Tap “Add Nearby Photos” to add the first one.")
+            )
+            .frame(height: galleryHeight)
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 12) {
+                    ForEach(stairPathFull.photoUrls, id: \.self) { url in
+                        photo(for: url)
+                            .containerRelativeFrame(.horizontal)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .frame(height: galleryHeight)
+            .padding(.horizontal, 8)
+        }
+    }
+
+    private func photo(for url: URL) -> some View {
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .empty:
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .success(let image):
+                image
+                    .resizable()
+                    .scaledToFill()
+            case .failure:
+                ContentUnavailableView("Couldn't load photo", systemImage: "photo.badge.exclamationmark")
+            @unknown default:
+                Color.clear
+            }
+        }
+        .frame(height: galleryHeight)
+        .frame(maxWidth: .infinity)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: photoCornerRadius))
+        .accessibilityLabel("Photo of \(stairPath.name)")
     }
 
     /// Downscales and re-encodes picked photos so we don't persist full-resolution

@@ -28,20 +28,26 @@ struct MapEditView: View {
                     let stairPathFull = StairPathFull(stairPath: stairPath)
                     Group {
                         MapPolyline(coordinates: stairPathFull.coordinates)
-                            .stroke(.blue, lineWidth: 3)
-                        Annotation(stairPath.name, coordinate: stairPathFull.centerCoordinate, anchor: .bottom) {
-                            Circle().fill(.blue).frame(width: 8, height: 8)
+                            .stroke(Color.accentColor, lineWidth: 4)
+                        Annotation(stairPath.name, coordinate: stairPathFull.centerCoordinate, anchor: .center) {
+                            Circle()
+                                .fill(Color.accentColor)
+                                .frame(width: 12, height: 12)
+                                .overlay(Circle().stroke(.white, lineWidth: 2))
                         }
                     }.tag(stairPath.id)
                 }
                 ForEach(Array(localPoints.enumerated()), id: \.offset) { index, coord in
-                    Annotation(index == 0 ? "Start" : "Point \(index+1)", coordinate: coord, anchor: .bottom) {
-                        Image(systemName: "mappin").foregroundStyle(.blue)
+                    Annotation(index == 0 ? "Start" : "Point \(index + 1)", coordinate: coord, anchor: .center) {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 16, height: 16)
+                            .overlay(Circle().stroke(.white, lineWidth: 2))
                     }
                 }
                 if localPoints.count > 1 {
                     MapPolyline(coordinates: localPoints)
-                        .stroke(.red, lineWidth: 3)
+                        .stroke(.red, lineWidth: 4)
                 }
             }
             .overlay(alignment: .bottom) {
@@ -74,11 +80,19 @@ struct MapEditView: View {
                 }
             }
             .overlay(alignment: .top) {
-                Text(stairPathInProgress.isEmpty ? "Tap to start location" : "Keep tapping to add points")
-                    .font(.headline)
-                    .padding()
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                    .padding(.top)
+                let count = stairPathInProgress.first?.points.count ?? 0
+                VStack(spacing: 4) {
+                    Text(count == 0 ? "Tap to set the start point" : "Keep tapping to add points")
+                        .font(.headline)
+                    if count > 0 {
+                        Text("\(count) \(count == 1 ? "point" : "points") added")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .padding(.top)
             }
             .onAppear {
                 if let inProgress = stairPathInProgress.first {
@@ -109,6 +123,7 @@ struct MapEditView: View {
                         localPoints.append(coordinate)
                         try? modelContext.save()
                         refreshTrigger += 1
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     } else {
                         selectedPathId = nil
                     }
