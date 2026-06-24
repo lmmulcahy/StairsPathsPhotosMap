@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMapEvents } from 'react-leaflet';
 import { MapPin, Plus, X, Image as ImageIcon, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +21,7 @@ interface StairPath {
   startLongitude: number;
   endLatitude: number;
   endLongitude: number;
+  pathData?: string;
 }
 
 export default function App() {
@@ -31,10 +32,33 @@ export default function App() {
   
   // Creation state
   const [isCreating, setIsCreating] = useState(false);
-  const [createStep, setCreateStep] = useState<0|1|2>(0);
-  const [startPoint, setStartPoint] = useState<[number, number] | null>(null);
-  const [endPoint, setEndPoint] = useState<[number, number] | null>(null);
+  const [createStep, setCreateStep] = useState<0|1>(0);
+  const [createPoints, setCreatePoints] = useState<[number, number][]>([]);
   const [newName, setNewName] = useState('');
+
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editPoints, setEditPoints] = useState<[number, number][]>([]);
+
+  const hasChanges = useMemo(() => {
+    if (!selectedPath || !isEditing) return false;
+    let originalPoints: [number, number][] = [
+      [selectedPath.startLatitude, selectedPath.startLongitude],
+      [selectedPath.endLatitude, selectedPath.endLongitude]
+    ];
+    if (selectedPath.pathData) {
+      try {
+        originalPoints = typeof selectedPath.pathData === 'string' ? JSON.parse(selectedPath.pathData) : selectedPath.pathData;
+      } catch {}
+    }
+    if (originalPoints.length !== editPoints.length) return true;
+    for (let i = 0; i < originalPoints.length; i++) {
+      if (originalPoints[i][0] !== editPoints[i][0] || originalPoints[i][1] !== editPoints[i][1]) {
+        return true;
+      }
+    }
+    return false;
+  }, [editPoints, selectedPath, isEditing]);
 
   useEffect(() => {
     fetch(`${API_BASE}/stairpaths`)
@@ -44,8 +68,10 @@ export default function App() {
   }, []);
 
   const handleSelectPath = async (path: StairPath) => {
+    if (isEditing) return;
     setSelectedPath(path);
     setIsCreating(false);
+    setIsEditing(false);
     setPhotos([]);
     setIsLoadingPhotos(true);
     
@@ -63,20 +89,71 @@ export default function App() {
   const handleCreateCancel = () => {
     setIsCreating(false);
     setCreateStep(0);
-    setStartPoint(null);
-    setEndPoint(null);
+    setCreatePoints([]);
     setNewName('');
   };
 
-  const handleSubmitNewPath = async () => {
-    if (!startPoint || !endPoint || !newName) return;
+  const handleEditClick = () => {
+    if (!selectedPath) return;
+    setIsEditing(true);
+    if (selectedPath.pathData) {
+      try {
+        setEditPoints(typeof selectedPath.pathData === 'string' ? JSON.parse(selectedPath.pathData) : selectedPath.pathData);
+      } catch {
+        setEditPoints([
+          [selectedPath.startLatitude, selectedPath.startLongitude],
+          [selectedPath.endLatitude, selectedPath.endLongitude]
+        ]);
+      }
+    } else {
+      setEditPoints([
+        [selectedPath.startLatitude, selectedPath.startLongitude],
+        [selectedPath.endLatitude, selectedPath.endLongitude]
+      ]);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedPath || editPoints.length < 2) return;
+    const start = editPoints[0];
+    const end = editPoints[editPoints.length - 1];
+    const payload = {
+      ...selectedPath,
+      startLatitude: start[0],
+      startLongitude: start[1],
+      endLatitude: end[0],
+      endLongitude: end[1],
+      pathData: editPoints
+    };
     
+    try {
+      const res = await fetch(`${API_BASE}/stairpaths/${selectedPath.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const updated = await res.json();
+      setPaths(prev => prev.map(p => p.id === updated.id ? updated : p));
+      setSelectedPath(updated);
+      setIsEditing(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSubmitNewPath = async () => {
+    if (createPoints.length < 2 || !newName) return;
+    
+    const start = createPoints[0];
+    const end = createPoints[createPoints.length - 1];
+
     const payload = {
       name: newName,
-      startLatitude: startPoint[0],
-      startLongitude: startPoint[1],
-      endLatitude: endPoint[0],
-      endLongitude: endPoint[1]
+      startLatitude: start[0],
+      startLongitude: start[1],
+      endLatitude: end[0],
+      endLongitude: end[1],
+      pathData: createPoints
     };
 
     try {
@@ -98,14 +175,8 @@ export default function App() {
   function MapClickHandler() {
     useMapEvents({
       click(e) {
-        if (!isCreating) return;
-        if (createStep === 0) {
-          setStartPoint([e.latlng.lat, e.latlng.lng]);
-          setCreateStep(1);
-        } else if (createStep === 1) {
-          setEndPoint([e.latlng.lat, e.latlng.lng]);
-          setCreateStep(2);
-        }
+        if (!isCreating || createStep !== 0) return;
+        setCreatePoints(prev => [...prev, [e.latlng.lat, e.latlng.lng]]);
       }
     });
     return null;
@@ -128,8 +199,7 @@ export default function App() {
                 setIsCreating(true);
                 setSelectedPath(null);
                 setCreateStep(0);
-                setStartPoint(null);
-                setEndPoint(null);
+                setCreatePoints([]);
               }}
             >
               <Plus size={20} /> Add New Path
@@ -164,27 +234,86 @@ export default function App() {
             <MapClickHandler />
 
             {/* Existing Paths */}
-            {paths.map(path => (
-              <Polyline 
-                key={path.id}
-                positions={[
-                  [path.startLatitude, path.startLongitude],
-                  [path.endLatitude, path.endLongitude]
-                ]}
-                color={selectedPath?.id === path.id ? '#a855f7' : '#ef4444'}
-                weight={selectedPath?.id === path.id ? 10 : 6}
-                opacity={selectedPath?.id === path.id ? 1.0 : 0.85}
-                eventHandlers={{
-                  click: () => handleSelectPath(path)
-                }}
-              />
-            ))}
+            {paths.map(path => {
+              if (selectedPath?.id === path.id && isEditing) return null;
+              let positions: [number, number][] = [
+                [path.startLatitude, path.startLongitude],
+                [path.endLatitude, path.endLongitude]
+              ];
+              if (path.pathData) {
+                 try {
+                    positions = typeof path.pathData === 'string' ? JSON.parse(path.pathData) : path.pathData;
+                 } catch {}
+              }
+              return (
+                <Polyline 
+                  key={path.id}
+                  positions={positions}
+                  color={selectedPath?.id === path.id ? '#a855f7' : '#ef4444'}
+                  weight={selectedPath?.id === path.id ? 10 : 6}
+                  opacity={selectedPath?.id === path.id ? 1.0 : 0.85}
+                  eventHandlers={{
+                    click: () => {
+                      if (!isEditing) handleSelectPath(path);
+                    }
+                  }}
+                />
+              );
+            })}
+
+            {/* Edit Mode Markers and Polyline */}
+            {isEditing && selectedPath && (
+              <>
+                <Polyline positions={editPoints} color="#a855f7" weight={10} />
+                {editPoints.map((pt, i) => (
+                  <Marker 
+                    key={`pt-${i}`} 
+                    position={pt} 
+                    draggable={true}
+                    eventHandlers={{
+                      dragend: (e) => {
+                        const newPt = [e.target.getLatLng().lat, e.target.getLatLng().lng] as [number, number];
+                        setEditPoints(prev => prev.map((p, idx) => idx === i ? newPt : p));
+                      }
+                    }}
+                  />
+                ))}
+                {editPoints.map((pt, i) => {
+                  if (i === editPoints.length - 1) return null;
+                  const nextPt = editPoints[i+1];
+                  const midPt: [number, number] = [(pt[0] + nextPt[0]) / 2, (pt[1] + nextPt[1]) / 2];
+                  return (
+                    <Marker 
+                      key={`mid-${i}`} 
+                      position={midPt} 
+                      draggable={true}
+                      opacity={0.5}
+                      eventHandlers={{
+                        dragend: (e) => {
+                          const newPt = [e.target.getLatLng().lat, e.target.getLatLng().lng] as [number, number];
+                          setEditPoints(prev => {
+                            const newArr = [...prev];
+                            newArr.splice(i + 1, 0, newPt);
+                            return newArr;
+                          });
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </>
+            )}
 
             {/* Creation Markers */}
-            {startPoint && <Marker position={startPoint} />}
-            {endPoint && <Marker position={endPoint} />}
-            {startPoint && endPoint && (
-              <Polyline positions={[startPoint, endPoint]} color="#ef4444" weight={4} dashArray="5, 10" />
+            {isCreating && createStep === 0 && (
+              <>
+                {createPoints.length > 1 && (
+                  <Polyline positions={createPoints} color="#ef4444" weight={4} dashArray="5, 10" />
+                )}
+                {createPoints.map((pt, i) => (
+                  <Marker key={`create-${i}`} position={pt} />
+                ))}
+              </>
             )}
           </MapContainer>
 
@@ -205,9 +334,20 @@ export default function App() {
                   </button>
                 </div>
                 
-                {createStep === 0 && <p>Tap the map to set the <strong>start</strong> point.</p>}
-                {createStep === 1 && <p>Tap the map to set the <strong>end</strong> point.</p>}
-                {createStep === 2 && (
+                {createStep === 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <p>Tap the map to add points to the path. Add as many points as you need.</p>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => setCreateStep(1)}
+                      disabled={createPoints.length < 2}
+                      style={{ opacity: createPoints.length >= 2 ? 1 : 0.5, cursor: createPoints.length >= 2 ? 'pointer' : 'not-allowed' }}
+                    >
+                      Finish Drawing Path
+                    </button>
+                  </div>
+                )}
+                {createStep === 1 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <input 
                       type="text" 
@@ -216,9 +356,23 @@ export default function App() {
                       onChange={e => setNewName(e.target.value)}
                       style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: 'white' }}
                     />
-                    <button className="btn btn-primary" onClick={handleSubmitNewPath}>
-                      <Check size={18} /> Save Path
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        className="btn btn-primary" 
+                        onClick={handleSubmitNewPath} 
+                        disabled={!newName.trim()}
+                        style={{ flex: 1, opacity: newName.trim() ? 1 : 0.5, cursor: newName.trim() ? 'pointer' : 'not-allowed' }}
+                      >
+                        <Check size={18} /> Save Path
+                      </button>
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={() => setCreateStep(0)} 
+                        style={{ flex: 1 }}
+                      >
+                        Back
+                      </button>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -236,30 +390,62 @@ export default function App() {
                 style={{ position: 'absolute', top: '1rem', right: '1rem', width: '320px', zIndex: 1000, maxHeight: 'calc(100% - 2rem)', overflowY: 'auto' }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{selectedPath.name}</h3>
-                  <button onClick={() => setSelectedPath(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{selectedPath.name}</h3>
+                    {!isEditing && (
+                      <button onClick={handleEditClick} style={{ background: '#3b82f6', border: 'none', color: 'white', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>
+                        Edit Path
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => { setSelectedPath(null); setIsEditing(false); }} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>
                     <X size={20} />
                   </button>
                 </div>
 
-                {isLoadingPhotos ? (
-                  <div style={{ padding: '2rem', textAlign: 'center' }}>Loading photos...</div>
-                ) : photos.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
-                    <ImageIcon size={48} style={{ opacity: 0.5, marginBottom: '1rem' }} />
-                    <p>No photos yet</p>
+                {isEditing ? (
+                  <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem' }}>Drag markers to move points. Drag translucent midpoint markers to add a new point.</p>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        className="btn btn-primary" 
+                        disabled={!hasChanges} 
+                        onClick={handleSaveEdit} 
+                        style={{ flex: 1, opacity: hasChanges ? 1 : 0.5, cursor: hasChanges ? 'pointer' : 'not-allowed' }}
+                      >
+                        Save
+                      </button>
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={() => { setIsEditing(false); handleSelectPath(selectedPath); }} 
+                        style={{ flex: 1 }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="photo-grid">
-                    {photos.map(id => (
-                      <img 
-                        key={id} 
-                        src={`${API_BASE}/photos/${id}`} 
-                        alt="Stairway" 
-                        className="photo-item animate-fade-in" 
-                      />
-                    ))}
-                  </div>
+                  <>
+                    {isLoadingPhotos ? (
+                      <div style={{ padding: '2rem', textAlign: 'center' }}>Loading photos...</div>
+                    ) : photos.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
+                        <ImageIcon size={48} style={{ opacity: 0.5, marginBottom: '1rem' }} />
+                        <p>No photos yet</p>
+                      </div>
+                    ) : (
+                      <div className="photo-grid">
+                        {photos.map(id => (
+                          <img 
+                            key={id} 
+                            src={`${API_BASE}/photos/${id}`} 
+                            alt="Stairway" 
+                            className="photo-item animate-fade-in" 
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </motion.div>
             )}

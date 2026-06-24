@@ -4,5 +4,6 @@ CREATE TABLE IF NOT EXISTS stairpaths (
     startLatitude REAL NOT NULL,
     startLongitude REAL NOT NULL,
     endLatitude REAL NOT NULL,
-    endLongitude REAL NOT NULL
+    endLongitude REAL NOT NULL,
+    pathData TEXT
 );
