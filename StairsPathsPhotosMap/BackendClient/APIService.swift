@@ -17,6 +17,9 @@ class APIService: ObservableObject {
     @Published var isLoading = false
     /// Set when a network operation fails; views can present this to the user and clear it.
     @Published var errorMessage: String?
+    /// Set after a successful contribution (path or photo) so the UI can confirm that it
+    /// was submitted for review rather than published immediately.
+    @Published var infoMessage: String?
 
     private let baseURL = "https://stairs-paths-api.luke-mulcahy.workers.dev"
 
@@ -36,52 +39,72 @@ class APIService: ObservableObject {
         }
     }
 
-    /// Posts a new path and, on success, appends the server's version (with its real id
-    /// and normalized pathData) to the local list. Returns whether it succeeded.
+    /// The JSON body for a new-path submission. pathData is sent as an array so the
+    /// backend stringifies it exactly once.
+    private struct PathSubmission: Encodable {
+        let kind: String
+        let name: String
+        let startLatitude: Double
+        let startLongitude: Double
+        let endLatitude: Double
+        let endLongitude: Double
+        let pathData: [[Double]]
+    }
+
+    /// Submits a new path to the review queue. It is not added to the live list; it
+    /// becomes visible only after an admin approves it. `points` are `[latitude, longitude]`
+    /// pairs. Returns whether it succeeded.
     @discardableResult
-    func addStairPath(_ stairPath: StairPath) async -> Bool {
-        guard let url = URL(string: "\(baseURL)/stairpaths") else { return false }
+    func submitNewPath(name: String, points: [[Double]]) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/submissions"),
+              let start = points.first, start.count >= 2,
+              let end = points.last, end.count >= 2 else { return false }
+
+        let body = PathSubmission(
+            kind: "create",
+            name: name,
+            startLatitude: start[0],
+            startLongitude: start[1],
+            endLatitude: end[0],
+            endLongitude: end[1],
+            pathData: points
+        )
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         do {
-            request.httpBody = try JSONEncoder().encode(stairPath)
-            let (data, response) = try await URLSession.shared.data(for: request)
+            request.httpBody = try JSONEncoder().encode(body)
+            let (_, response) = try await URLSession.shared.data(for: request)
             try Self.validate(response)
-            // Prefer the server's representation so we pick up the real id; fall back to
-            // the local object if the response can't be decoded.
-            let created = (try? JSONDecoder().decode(StairPath.self, from: data)) ?? stairPath
-            stairPaths.append(created)
+            infoMessage = "Thanks! Your path was submitted for review."
             return true
         } catch {
-            logger.error("Failed to add stairPath: \(error.localizedDescription)")
-            errorMessage = "Couldn't save your path. Please try again."
+            logger.error("Failed to submit path: \(error.localizedDescription)")
+            errorMessage = "Couldn't submit your path. Please try again."
             return false
         }
     }
 
-    /// Uploads a single JPEG for a path and returns the URL to fetch it back, or nil on failure.
-    func uploadPhoto(data: Data, for stairPathId: Int) async -> URL? {
-        guard let url = URL(string: "\(baseURL)/stairpaths/\(stairPathId)/photos") else { return nil }
+    /// Uploads a single JPEG for a path as a pending submission. Returns whether it
+    /// succeeded; the photo is not shown until an admin approves it.
+    @discardableResult
+    func uploadPhoto(data: Data, for stairPathId: Int) async -> Bool {
+        guard let url = URL(string: "\(baseURL)/stairpaths/\(stairPathId)/photos") else { return false }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
         request.httpBody = data
 
         do {
-            let (responseData, response) = try await URLSession.shared.data(for: request)
+            let (_, response) = try await URLSession.shared.data(for: request)
             try Self.validate(response)
-            let json = try JSONSerialization.jsonObject(with: responseData) as? [String: Any]
-            if let photoId = json?["id"] as? String {
-                return URL(string: "\(baseURL)/photos/\(photoId)")
-            }
-            return nil
+            return true
         } catch {
             logger.error("Failed to upload photo: \(error.localizedDescription)")
             errorMessage = "Couldn't upload a photo. Please try again."
-            return nil
+            return false
         }
     }
 

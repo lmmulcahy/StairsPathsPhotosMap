@@ -64,33 +64,21 @@ struct AddNewStairPathView: View {
                     .tint(.red)
 
                     Button {
-                        guard let inProgress = stairPathInProgress.first, let start = inProgress.points.first, let end = inProgress.points.last else { return }
+                        guard let inProgress = stairPathInProgress.first else { return }
+                        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        // Snapshot coordinates now; the draft (and its MapLocations) is
+                        // deleted below before the async submission runs.
+                        let coords = inProgress.points.map { [$0.latitude, $0.longitude] }
 
-                        // Serialize the points into a pathData JSON string. StairPath's
-                        // encoder re-emits this as a real array for the backend.
-                        let pathDataArr = inProgress.points.map { [$0.latitude, $0.longitude] }
-                        let pathDataStr = (try? JSONEncoder().encode(pathDataArr)).flatMap { String(data: $0, encoding: .utf8) }
-
-                        // id 0 is a placeholder; the backend assigns the real id and we
-                        // adopt the server's response in APIService.addStairPath.
-                        let newPath = StairPath(
-                            id: 0,
-                            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                            startLatitude: start.latitude,
-                            startLongitude: start.longitude,
-                            endLatitude: end.latitude,
-                            endLongitude: end.longitude,
-                            pathData: pathDataStr
-                        )
-
+                        // New paths go to the review queue rather than straight to the map.
                         Task {
-                            await apiService.addStairPath(newPath)
+                            await apiService.submitNewPath(name: trimmed, points: coords)
                         }
 
                         discardDraft()
                         dismiss()
                     } label: {
-                        Label("Save Path", systemImage: "checkmark.circle.fill")
+                        Label("Submit for Review", systemImage: "paperplane.fill")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
