@@ -7,3 +7,9 @@ CREATE TABLE IF NOT EXISTS stairpaths (
     endLongitude REAL NOT NULL,
     pathData TEXT
 );
+
+CREATE TABLE IF NOT EXISTS photos (
+    id TEXT PRIMARY KEY,
+    stairpath_id INTEGER,
+    object_key TEXT
+);
