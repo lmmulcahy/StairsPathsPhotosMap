@@ -44,7 +44,18 @@ interface PendingPhoto {
 function parsePoints(pathData: string | undefined, fallback: [number, number][]): [number, number][] {
   if (!pathData) return fallback;
   try {
-    return typeof pathData === 'string' ? JSON.parse(pathData) : pathData;
+    let v: unknown = typeof pathData === 'string' ? JSON.parse(pathData) : pathData;
+    // Tolerate legacy double-encoded data (a JSON string containing JSON) from the old
+    // iOS encoder, which would otherwise parse to a string and crash <Polyline>.
+    if (typeof v === 'string') v = JSON.parse(v);
+    if (
+      Array.isArray(v) &&
+      v.length > 0 &&
+      v.every((pt) => Array.isArray(pt) && pt.length >= 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number')
+    ) {
+      return v as [number, number][];
+    }
+    return fallback;
   } catch {
     return fallback;
   }
