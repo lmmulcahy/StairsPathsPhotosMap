@@ -412,7 +412,7 @@ export default function App() {
                 <Polyline
                   key={path.id}
                   positions={positions}
-                  color={selectedPath?.id === path.id ? '#a855f7' : '#39ff14'}
+                  color={selectedPath?.id === path.id ? '#a855f7' : '#bf00ff'}
                   weight={selectedPath?.id === path.id ? 10 : 6}
                   opacity={selectedPath?.id === path.id ? 1.0 : 0.85}
                   eventHandlers={{
@@ -732,12 +732,12 @@ function SubmissionCard({
       <MapContainer center={newPoints[0]} zoom={15} style={{ height: '160px', width: '100%', borderRadius: '8px' }} scrollWheelZoom={false}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {oldPoints.length > 0 && <Polyline positions={oldPoints} color="#64748b" weight={4} dashArray="4,6" />}
-        <Polyline positions={newPoints} color="#39ff14" weight={6} />
+        <Polyline positions={newPoints} color="#bf00ff" weight={6} />
         <FitBounds points={[...newPoints, ...oldPoints]} />
       </MapContainer>
       {existing && (
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          <span style={{ color: '#94a3b8' }}>— —</span> current · <span style={{ color: '#39ff14' }}>———</span> proposed
+          <span style={{ color: '#94a3b8' }}>— —</span> current · <span style={{ color: '#bf00ff' }}>———</span> proposed
         </div>
       )}
       <div style={{ display: 'flex', gap: '0.5rem' }}>
