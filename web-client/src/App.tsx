@@ -76,6 +76,7 @@ export default function App() {
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
   const [editPoints, setEditPoints] = useState<[number, number][]>([]);
+  const [editName, setEditName] = useState('');
 
   // Admin / review state
   const [view, setView] = useState<'map' | 'queue'>('map');
@@ -116,6 +117,7 @@ export default function App() {
       [selectedPath.endLatitude, selectedPath.endLongitude]
     ];
     originalPoints = parsePoints(selectedPath.pathData, originalPoints);
+    if (selectedPath.name !== editName) return true;
     if (originalPoints.length !== editPoints.length) return true;
     for (let i = 0; i < originalPoints.length; i++) {
       if (originalPoints[i][0] !== editPoints[i][0] || originalPoints[i][1] !== editPoints[i][1]) {
@@ -123,7 +125,7 @@ export default function App() {
       }
     }
     return false;
-  }, [editPoints, selectedPath, isEditing]);
+  }, [editPoints, editName, selectedPath, isEditing]);
 
   useEffect(() => {
     // Initial data load on mount. State is set asynchronously after the fetches resolve,
@@ -162,6 +164,7 @@ export default function App() {
   const handleEditClick = () => {
     if (!selectedPath) return;
     setIsEditing(true);
+    setEditName(selectedPath.name);
     setEditPoints(parsePoints(selectedPath.pathData, [
       [selectedPath.startLatitude, selectedPath.startLongitude],
       [selectedPath.endLatitude, selectedPath.endLongitude]
@@ -169,11 +172,12 @@ export default function App() {
   };
 
   const handleSaveEdit = async () => {
-    if (!selectedPath || editPoints.length < 2) return;
+    if (!selectedPath || editPoints.length < 2 || !editName.trim()) return;
     const start = editPoints[0];
     const end = editPoints[editPoints.length - 1];
     const payload = {
       ...selectedPath,
+      name: editName.trim(),
       startLatitude: start[0],
       startLongitude: start[1],
       endLatitude: end[0],
@@ -549,8 +553,8 @@ export default function App() {
                 style={{ position: 'absolute', top: '1rem', right: '1rem', width: '320px', zIndex: 1000, maxHeight: 'calc(100% - 2rem)', overflowY: 'auto' }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{selectedPath.name}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+                    {!isEditing && <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{selectedPath.name}</h3>}
                     {!isEditing && (
                       <button onClick={handleEditClick} style={{ background: '#3b82f6', border: 'none', color: 'white', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>
                         Edit Path
@@ -564,13 +568,20 @@ export default function App() {
 
                 {isEditing ? (
                   <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', marginBottom: '1rem' }}>
+                    <input
+                      type="text"
+                      placeholder="Path Name"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: 'white', marginBottom: '1rem', boxSizing: 'border-box' }}
+                    />
                     <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem' }}>Drag markers to move points. Drag translucent midpoint markers to add a new point.</p>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button 
-                        className="btn btn-primary" 
-                        disabled={!hasChanges} 
-                        onClick={handleSaveEdit} 
-                        style={{ flex: 1, opacity: hasChanges ? 1 : 0.5, cursor: hasChanges ? 'pointer' : 'not-allowed' }}
+                      <button
+                        className="btn btn-primary"
+                        disabled={!hasChanges || !editName.trim()}
+                        onClick={handleSaveEdit}
+                        style={{ flex: 1, opacity: (hasChanges && editName.trim()) ? 1 : 0.5, cursor: (hasChanges && editName.trim()) ? 'pointer' : 'not-allowed' }}
                       >
                         Save
                       </button>
