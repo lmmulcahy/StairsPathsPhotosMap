@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMapEvents, useMap } from 'react-leaflet';
-import { MapPin, Plus, X, Image as ImageIcon, Check, Trash2, Upload, ClipboardList, RefreshCw } from 'lucide-react';
+import { MapPin, Plus, X, Image as ImageIcon, Check, Trash2, Upload, ClipboardList, RefreshCw, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 
@@ -315,6 +315,12 @@ export default function App() {
               {queueCount}
             </span>
           )}
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => { window.location.href = '/cdn-cgi/access/logout'; }}
+        >
+          <LogOut size={16} /> Log out
         </button>
       </header>
 
