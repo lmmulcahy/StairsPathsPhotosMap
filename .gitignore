@@ -1,1 +1,5 @@
 StairsPathsPhotosMap/Secrets.xcconfig
+
+# Xcode per-user workspace state
+xcuserdata/
+*.xcuserstate
